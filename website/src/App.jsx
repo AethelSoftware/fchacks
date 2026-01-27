@@ -443,7 +443,7 @@ export default function Home() {
               </div>
 
               <motion.a
-                href="https://docs.google.com/forms/d/e/1FAIpQLSdJ8qUgqsHDBEELzE5xT6zU8-g2xYbQiiUIYlD3JOQfC30e4w/viewform?usp=dialog"
+                href="https://forms.gle/5Q1ussbR1znusNUy8"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="group relative w-full inline-flex items-center justify-center gap-3 px-10 py-6 rounded-full bg-gradient-to-r from-violet-500 to-indigo-500 text-white text-xl font-bold shadow-xl overflow-hidden"
