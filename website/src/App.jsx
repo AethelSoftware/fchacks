@@ -2,802 +2,1033 @@
 
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sun, Moon, Menu, X, Calendar, Users, Trophy, Code2, Zap, Coffee, Heart, ChevronRight, Award, Users as UsersIcon, Sparkles, Leaf, ChevronDown } from "lucide-react";
+import {
+  Calendar, Users, Trophy, Zap, Coffee, Heart,
+  ChevronRight, Leaf, Award, Menu, X, Sun, Moon,
+} from "lucide-react";
 
+/* ─────────────────────────────────────────
+   FONT + GLOBAL STYLES
+───────────────────────────────────────── */
+const GlobalStyles = () => (
+  <style>{`
+    @import url('https://fonts.googleapis.com/css2?family=Cormorant:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Outfit:wght@300;400;500;600;700&display=swap');
+
+    :root {
+      --gold:        #C4913A;
+      --gold-light:  #E8C97A;
+      --gold-dim:    rgba(196,145,58,0.15);
+      --gold-border: rgba(196,145,58,0.22);
+      --bg:          #060604;
+      --surface:     #0D0C0A;
+      --card:        #131210;
+      --text:        #F0E6D3;
+      --muted:       #7A6E5F;
+      --faint:       #2E2A24;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Outfit', sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    ::selection { background: rgba(196,145,58,0.25); color: var(--gold-light); }
+
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--gold); border-radius: 2px; }
+
+    .font-display { font-family: 'Cormorant', serif; }
+    .font-mono    { font-family: 'DM Mono', monospace; }
+
+    /* Grain overlay */
+    .grain::before {
+      content: '';
+      position: fixed;
+      inset: -200%;
+      width: 400%;
+      height: 400%;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E");
+      opacity: 0.035;
+      pointer-events: none;
+      z-index: 9999;
+      animation: grain 0.8s steps(2) infinite;
+    }
+    @keyframes grain {
+      0%,100% { transform: translate(0,0); }
+      10%     { transform: translate(-2%,-3%); }
+      20%     { transform: translate(3%,2%); }
+      30%     { transform: translate(-1%,4%); }
+      40%     { transform: translate(2%,-1%); }
+      50%     { transform: translate(-3%,1%); }
+      60%     { transform: translate(1%,3%); }
+      70%     { transform: translate(3%,-2%); }
+      80%     { transform: translate(-2%,2%); }
+      90%     { transform: translate(1%,-3%); }
+    }
+
+    /* Gold shimmer */
+    @keyframes shimmer {
+      0%   { background-position: -200% center; }
+      100% { background-position:  200% center; }
+    }
+    .shimmer-text {
+      background: linear-gradient(90deg, var(--gold) 0%, var(--gold-light) 30%, #FFF6DC 50%, var(--gold-light) 70%, var(--gold) 100%);
+      background-size: 200% auto;
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: shimmer 4s linear infinite;
+    }
+
+    /* Subtle grid lines */
+    .grid-bg {
+      background-image:
+        linear-gradient(rgba(196,145,58,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(196,145,58,0.04) 1px, transparent 1px);
+      background-size: 60px 60px;
+    }
+
+    /* Prize cards */
+    .prize-gold   { box-shadow: 0 0 60px rgba(196,145,58,0.18), 0 0 120px rgba(196,145,58,0.08); }
+    .prize-silver { box-shadow: 0 0 40px rgba(180,190,200,0.10); }
+    .prize-bronze { box-shadow: 0 0 40px rgba(180,120,60,0.10); }
+
+    /* Nav line */
+    .nav-line::after {
+      content: '';
+      display: block;
+      position: absolute;
+      bottom: -1px;
+      left: 0;
+      width: 100%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--gold), transparent);
+      opacity: 0.4;
+    }
+
+    /* Section number */
+    .section-num {
+      font-family: 'Cormorant', serif;
+      font-size: clamp(6rem, 14vw, 12rem);
+      font-weight: 300;
+      line-height: 0.85;
+      letter-spacing: -0.04em;
+      color: transparent;
+      -webkit-text-stroke: 1px rgba(196,145,58,0.12);
+      pointer-events: none;
+      user-select: none;
+    }
+
+    /* Detail row */
+    .detail-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 1.25rem;
+      padding: 1.25rem 1.5rem;
+      border-radius: 0.75rem;
+      background: rgba(196,145,58,0.04);
+      border: 1px solid var(--gold-border);
+      transition: border-color 0.3s, background 0.3s;
+    }
+    .detail-row:hover {
+      background: rgba(196,145,58,0.07);
+      border-color: rgba(196,145,58,0.35);
+    }
+
+    /* Button shine */
+    .btn-primary {
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(135deg, #B8832E 0%, #C4913A 40%, #D4A44E 100%);
+      border: 1px solid rgba(255,255,255,0.12);
+      box-shadow: 0 4px 24px rgba(196,145,58,0.35), inset 0 1px 0 rgba(255,255,255,0.15);
+      color: #0D0C0A;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      transition: box-shadow 0.3s, transform 0.2s;
+    }
+    .btn-primary::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, transparent 0%, rgba(255,255,255,0.12) 50%, transparent 100%);
+      transform: translateX(-100%);
+      transition: transform 0.5s ease;
+    }
+    .btn-primary:hover::after { transform: translateX(100%); }
+    .btn-primary:hover {
+      box-shadow: 0 8px 40px rgba(196,145,58,0.5), inset 0 1px 0 rgba(255,255,255,0.2);
+    }
+
+    .btn-outline {
+      border: 1px solid var(--gold-border);
+      color: var(--text);
+      transition: background 0.3s, border-color 0.3s;
+    }
+    .btn-outline:hover {
+      background: var(--gold-dim);
+      border-color: rgba(196,145,58,0.4);
+    }
+  `}</style>
+);
+
+/* ─────────────────────────────────────────
+   CONSTANTS
+───────────────────────────────────────── */
 const NAV_LINKS = [
-  { id: "about", label: "About" },
+  { id: "about",     label: "About"     },
   { id: "hackathon", label: "Hackathon" },
-  { id: "donate", label: "Support" },
-  { id: "join", label: "Join" },
+  { id: "prizes",    label: "Prizes"    },
+  { id: "donate",    label: "Support"   },
+  { id: "join",      label: "Join"      },
 ];
 
-const containerVariants = {
+const stagger = {
   hidden: {},
-  show: {
-    transition: { staggerChildren: 0.12 },
-  },
+  show:   { transition: { staggerChildren: 0.1 } },
 };
 
-const itemVariants = {
-  hidden: { opacity: 0, y: 10 },
-  show: {
-    opacity: 1,
-    y: 0,
-    transition: {
-      duration: 0.48,
-      ease: [0.22, 1, 0.36, 1],
-    },
-  },
+const fadeUp = {
+  hidden: { opacity: 0, y: 22 },
+  show:   { opacity: 1, y: 0, transition: { duration: 0.7, ease: [0.22,1,0.36,1] } },
 };
 
+const fadeLeft = {
+  hidden: { opacity: 0, x: -30 },
+  show:   { opacity: 1, x: 0,  transition: { duration: 0.8, ease: [0.22,1,0.36,1] } },
+};
+
+const fadeRight = {
+  hidden: { opacity: 0, x: 30 },
+  show:   { opacity: 1, x: 0, transition: { duration: 0.8, ease: [0.22,1,0.36,1] } },
+};
+
+/* ─────────────────────────────────────────
+   THIN GOLD DIVIDER
+───────────────────────────────────────── */
+const GoldLine = ({ className = "" }) => (
+  <div className={`w-full h-px ${className}`}
+       style={{ background: "linear-gradient(90deg,transparent,var(--gold),transparent)", opacity: 0.25 }} />
+);
+
+/* ─────────────────────────────────────────
+   MAIN COMPONENT
+───────────────────────────────────────── */
 export default function Home() {
-  const [theme, setTheme] = useState("dark");
-  const [isDark, setIsDark] = useState(true);
+  const [theme, setTheme]       = useState("dark");
+  const [isDark, setIsDark]     = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-    if (typeof document !== "undefined") {
+    if (typeof document !== "undefined")
       document.documentElement.classList.add("dark");
-    }
   }, []);
 
-  const [reduceMotion, setReduceMotion] = useState(false);
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      setReduceMotion(window.matchMedia("(prefers-reduced-motion: reduce)").matches);
-    }
+    const handler = () => setScrolled(window.scrollY > 30);
+    window.addEventListener("scroll", handler, { passive: true });
+    return () => window.removeEventListener("scroll", handler);
   }, []);
 
   const toggleTheme = () => {
-    const newTheme = theme === "dark" ? "light" : "dark";
-    setTheme(newTheme);
-    setIsDark(newTheme === "dark");
-    if (typeof document !== "undefined") {
-      if (newTheme === "dark") {
-        document.documentElement.classList.add("dark");
-      } else {
-        document.documentElement.classList.remove("dark");
-      }
-    }
+    const next = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+    setIsDark(next === "dark");
+    document.documentElement.classList.toggle("dark", next === "dark");
   };
 
-  const handleScrollTo = (id) => {
-    const el = document.getElementById(id);
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
-      setMobileOpen(false);
-    }
+  const scrollTo = (id) => {
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setMobileOpen(false);
   };
 
   return (
-    <div className="font-serif antialiased text-amber-100 bg-[#0c0c0a] selection:bg-amber-900/30">
-      {/* Wood Pattern Background */}
-      <div className="fixed inset-0 opacity-5 pointer-events-none" 
-           style={{
-             backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%23d4a574' fill-opacity='0.4' fill-rule='evenodd'/%3E%3C/svg%3E")`,
-           }} 
-      />
-      
-      {/* Wood Texture Overlay */}
-      <div className="fixed inset-0 opacity-5 pointer-events-none mix-blend-overlay"
-           style={{
-             backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400' viewBox='0 0 800 800'%3E%3Cg fill='none' stroke='%23404040' stroke-width='1'%3E%3Cpath d='M769 229L1037 260.9M927 880L731 737 520 660 309 538 40 599 295 764 126.5 879.5 40 599-197 493 102 382-31 229 126.5 79.5-69-63'/%3E%3Cpath d='M-31 229L237 261 390 382 603 493 308.5 537.5 101.5 381.5M370 905L295 764'/%3E%3Cpath d='M520 660L578 842 731 737 840 599 603 493 520 660 295 764 309 538 390 382 539 269 769 229 577.5 41.5 370 105 295 -36 126.5 79.5 237 261 102 382 40 599 -69 737 127 880'/%3E%3Cpath d='M520-140L578.5 42.5 731-63M603 493L539 269 237 261 370 105M902 382L539 269M390 382L102 382'/%3E%3Cpath d='M-222 42L126.5 79.5 370 105 539 269 577.5 41.5 927 80 769 229 902 382 603 493 731 737M295-36L577.5 41.5M578 842L295 764M40-201L127 80M102 382L-261 269'/%3E%3C/g%3E%3Cg fill='%23595959'%3E%3Ccircle cx='769' cy='229' r='5'/%3E%3Ccircle cx='539' cy='269' r='5'/%3E%3Ccircle cx='603' cy='493' r='5'/%3E%3Ccircle cx='731' cy='737' r='5'/%3E%3Ccircle cx='520' cy='660' r='5'/%3E%3Ccircle cx='309' cy='538' r='5'/%3E%3Ccircle cx='295' cy='764' r='5'/%3E%3Ccircle cx='40' cy='599' r='5'/%3E%3Ccircle cx='102' cy='382' r='5'/%3E%3Ccircle cx='127' cy='80' r='5'/%3E%3Ccircle cx='370' cy='105' r='5'/%3E%3Ccircle cx='578' cy='42' r='5'/%3E%3Ccircle cx='237' cy='261' r='5'/%3E%3Ccircle cx='390' cy='382' r='5'/%3E%3C/g%3E%3C/svg%3E")`,
-           }}
-      />
+    <>
+      <GlobalStyles />
+      <div className="grain" style={{ position: "relative", minHeight: "100vh" }}>
 
-      {/* Header - Wood Panel */}
-      <header className="fixed inset-x-0 top-0 z-50 backdrop-blur-sm bg-[#1a1814]/95 border-b border-amber-900/30 shadow-2xl">
-        <div className="max-w-7xl mx-auto px-4 sm:px-8 py-4 flex items-center justify-between">
-          <motion.div 
-            className="flex items-center gap-3 sm:gap-4"
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-          >
-            <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-r from-amber-700/20 to-amber-900/20 blur-xl rounded-full" />
-              <a href="#" className="relative text-2xl font-bold tracking-tight text-amber-100 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-800 to-amber-900 flex items-center justify-center shadow-inner border border-amber-700/50">
-                  <Leaf size={24} className="text-amber-300" />
-                </div>
-                <span className="bg-gradient-to-r from-amber-200 to-amber-300 bg-clip-text text-transparent">
-                  FC Hacks
-                </span>
-              </a>
-            </div>
-          </motion.div>
-          
-          <nav className="hidden md:flex items-center gap-8">
-            {NAV_LINKS.map((link, idx) => (
-              <motion.a
-                key={link.id}
-                onClick={() => handleScrollTo(link.id)}
-                className="relative inline-block text-base font-medium group cursor-pointer text-amber-200/90 hover:text-amber-100 transition-colors"
-                initial={{ opacity: 0, y: -6 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{
-                  duration: 0.45,
-                  ease: [0.22, 1, 0.36, 1],
-                  delay: idx * 0.1,
-                }}
-                whileHover={{ y: -2 }}
-              >
-                <span className="relative z-10 flex items-center gap-2">
-                  {link.label}
-                  {link.id === "donate" && <Heart size={14} className="text-amber-400" />}
-                </span>
-                <motion.span
-                  aria-hidden
-                  className="absolute left-0 bottom-0 h-[2px] w-full origin-left bg-gradient-to-r from-amber-600 via-amber-500 to-amber-400"
-                  initial={{ scaleX: 0 }}
-                  whileHover={{ scaleX: 1 }}
-                  transition={{
-                    type: "tween",
-                    duration: 0.28,
-                    ease: [0.22, 1, 0.36, 1],
+        {/* ══════════════════════════════════════
+            HEADER
+        ══════════════════════════════════════ */}
+        <header
+          className="nav-line"
+          style={{
+            position: "fixed",
+            inset: "0 0 auto",
+            zIndex: 100,
+            transition: "background 0.4s, border-color 0.4s",
+            background: scrolled ? "rgba(6,6,4,0.92)" : "rgba(6,6,4,0.55)",
+            backdropFilter: "blur(20px)",
+            borderBottom: `1px solid ${scrolled ? "rgba(196,145,58,0.15)" : "transparent"}`,
+          }}
+        >
+          <div style={{ maxWidth: 1200, margin: "0 auto", padding: "1.1rem 2rem", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            {/* Logo */}
+            <motion.a
+              href="#"
+              initial={{ opacity: 0, x: -16 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.7, ease: [0.22,1,0.36,1] }}
+              style={{ display: "flex", alignItems: "center", gap: "0.75rem", textDecoration: "none" }}
+            >
+              <div style={{
+                width: 38, height: 38, borderRadius: 10,
+                background: "linear-gradient(135deg,#1A1710,#0D0C0A)",
+                border: "1px solid rgba(196,145,58,0.35)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                boxShadow: "0 0 20px rgba(196,145,58,0.12)",
+              }}>
+                <Leaf size={18} color="var(--gold)" />
+              </div>
+              <span className="font-display" style={{ fontSize: "1.35rem", fontWeight: 600, letterSpacing: "-0.01em", color: "var(--text)" }}>
+                FC<span style={{ color: "var(--gold)" }}> Hacks</span>
+              </span>
+            </motion.a>
+
+            {/* Desktop Nav */}
+            <nav style={{ display: "flex", alignItems: "center", gap: "2.5rem" }}>
+              {NAV_LINKS.map((link, i) => (
+                <motion.button
+                  key={link.id}
+                  onClick={() => scrollTo(link.id)}
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: i * 0.07, ease: [0.22,1,0.36,1] }}
+                  style={{
+                    background: "none", border: "none", cursor: "pointer",
+                    fontFamily: "'Outfit', sans-serif", fontSize: "0.875rem",
+                    fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase",
+                    color: "var(--muted)", transition: "color 0.25s",
+                    display: "none",
                   }}
-                  style={{ transformOrigin: "left center" }}
-                />
-              </motion.a>
-            ))}
-          </nav>
-          
-          <div className="md:hidden flex items-center gap-3">
-            <button
-              onClick={toggleTheme}
-              className="p-2 rounded-full bg-amber-900/20 border border-amber-800/30 text-amber-200 hover:text-amber-100 transition-colors"
-              aria-label="Toggle color mode"
-            >
-              {isDark ? <Sun size={18} /> : <Moon size={18} />}
-            </button>
-            <button
-              onClick={() => setMobileOpen((s) => !s)}
-              className="p-2 rounded-md bg-amber-900/30 backdrop-blur-sm text-amber-200 border border-amber-800/30"
-              aria-label="Open menu"
-            >
-              {mobileOpen ? <X size={18} /> : <Menu size={18} />}
-            </button>
-          </div>
-        </div>
-        
-        <AnimatePresence>
-          {mobileOpen && (
+                  className="desktop-nav-item"
+                  onMouseEnter={e => e.currentTarget.style.color = "var(--gold-light)"}
+                  onMouseLeave={e => e.currentTarget.style.color = "var(--muted)"}
+                >
+                  {link.label}
+                </motion.button>
+              ))}
+            </nav>
+
+            {/* Desktop: CTA + theme */}
             <motion.div
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              className="md:hidden px-4 pb-6"
+              initial={{ opacity: 0, x: 16 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.7, ease: [0.22,1,0.36,1] }}
+              style={{ display: "flex", alignItems: "center", gap: "1rem" }}
             >
-              <div className="bg-[#1a1814] rounded-xl p-4 backdrop-blur-md border border-amber-800/30 shadow-xl">
-                <ul className="flex flex-col gap-3">
-                  {NAV_LINKS.map((l) => (
-                    <li key={l.id}>
-                      <a
-                        href={`#${l.id}`}
-                        className="flex items-center gap-3 py-2 px-3 rounded-md font-medium hover:bg-amber-900/20 text-amber-200/90 border border-transparent hover:border-amber-800/30 transition-all"
-                        onClick={() => setMobileOpen(false)}
-                      >
-                        {l.label}
-                        {l.id === "donate" && <Heart size={14} className="text-amber-400" />}
-                      </a>
+              <a
+                href="https://forms.gle/5Q1ussbR1znusNUy8"
+                target="_blank" rel="noopener noreferrer"
+                className="btn-primary"
+                style={{ padding: "0.55rem 1.25rem", borderRadius: 8, fontSize: "0.8rem", fontWeight: 600, textDecoration: "none", letterSpacing: "0.05em", textTransform: "uppercase" }}
+              >
+                Register
+              </a>
+              <button
+                onClick={() => setMobileOpen(s => !s)}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", display: "block" }}
+              >
+                {mobileOpen ? <X size={20} /> : <Menu size={20} />}
+              </button>
+            </motion.div>
+          </div>
+
+          {/* Mobile Drawer */}
+          <AnimatePresence>
+            {mobileOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                style={{
+                  background: "rgba(13,12,10,0.98)",
+                  borderTop: "1px solid var(--gold-border)",
+                  padding: "1.5rem 2rem 2rem",
+                }}
+              >
+                {NAV_LINKS.map(l => (
+                  <button
+                    key={l.id}
+                    onClick={() => scrollTo(l.id)}
+                    style={{
+                      display: "block", width: "100%", textAlign: "left",
+                      background: "none", border: "none", cursor: "pointer",
+                      fontFamily: "'Outfit', sans-serif", fontSize: "1rem",
+                      fontWeight: 500, letterSpacing: "0.06em", textTransform: "uppercase",
+                      color: "var(--muted)", padding: "0.85rem 0",
+                      borderBottom: "1px solid var(--faint)",
+                    }}
+                  >
+                    {l.label}
+                  </button>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </header>
+
+        {/* ══════════════════════════════════════
+            HERO
+        ══════════════════════════════════════ */}
+        <section style={{ position: "relative", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+          {/* Video BG */}
+          <video
+            autoPlay loop muted playsInline
+            src="/codingcinematicvid.mp4"
+            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+            aria-hidden="true"
+          />
+          {/* Multi-layer overlay */}
+          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,4,0.65) 0%, rgba(6,6,4,0.5) 50%, rgba(6,6,4,0.85) 100%)" }} />
+          <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at center, transparent 30%, rgba(6,6,4,0.5) 100%)" }} />
+
+          {/* Content */}
+          <motion.div
+            variants={stagger}
+            initial="hidden"
+            animate="show"
+            style={{
+              position: "relative", zIndex: 10, textAlign: "center",
+              maxWidth: 860, padding: "3.5rem 3rem 3rem", paddingTop: "calc(3.5rem + 0px)",
+              marginTop: 80,
+              borderRadius: 28,
+              background: "rgba(6,6,4,0.45)",
+              backdropFilter: "blur(28px) saturate(1.4)",
+              WebkitBackdropFilter: "blur(28px) saturate(1.4)",
+              border: "1px solid rgba(196,145,58,0.12)",
+              boxShadow: "0 8px 80px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.04)",
+            }}
+          >
+            {/* Badge */}
+            <motion.div variants={fadeUp} style={{ display: "inline-flex", alignItems: "center", gap: "0.6rem", padding: "0.45rem 1.1rem", borderRadius: 999, border: "1px solid var(--gold-border)", background: "rgba(196,145,58,0.07)", marginBottom: "2rem" }}>
+              <div style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--gold)", boxShadow: "0 0 8px var(--gold)", animation: "pulse 2s ease-in-out infinite" }} />
+              <span className="font-mono" style={{ fontSize: "0.72rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--gold-light)" }}>
+                High School Coding Club · Fox Chapel Area
+              </span>
+            </motion.div>
+
+            {/* Main Headline */}
+            <motion.h1
+              variants={fadeUp}
+              className="font-display"
+              style={{ fontSize: "clamp(3.5rem, 11vw, 9rem)", fontWeight: 300, lineHeight: 0.9, letterSpacing: "-0.03em", marginBottom: "2rem" }}
+            >
+              <span style={{ display: "block", color: "var(--text)" }}>Build. <span style={{ color: "var(--text)", opacity: 0.75 }}>Create.</span></span>
+              <span className="shimmer-text" style={{ display: "block" }}>Ship.</span>
+            </motion.h1>
+
+            {/* Sub */}
+            <motion.p
+              variants={fadeUp}
+              style={{ fontSize: "clamp(1rem,2.5vw,1.2rem)", fontWeight: 300, color: "rgba(240,230,211,0.7)", maxWidth: 540, margin: "0 auto 0.75rem", lineHeight: 1.65 }}
+            >
+              A small, craft-minded club from Fox Chapel that treats code like a trade.
+            </motion.p>
+            <motion.p
+              variants={fadeUp}
+              style={{ fontSize: "clamp(0.95rem,2.2vw,1.1rem)", fontWeight: 400, color: "var(--gold-light)", marginBottom: "2.5rem" }}
+            >
+              <span style={{ fontWeight: 600 }}>Special Event —</span> We're hosting our first online hackathon.
+            </motion.p>
+
+            {/* CTAs */}
+            <motion.div variants={fadeUp} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "1rem", flexWrap: "wrap" }}>
+              <a
+                href="https://docs.google.com/forms/d/e/1FAIpQLSdJ8qUgqsHDBEELzE5xT6zU8-g2xYbQiiUIYlD3JOQfC30e4w/viewform?usp=dialog"
+                className="btn-primary"
+                style={{ display: "inline-flex", alignItems: "center", gap: "0.6rem", padding: "0.9rem 2rem", borderRadius: 12, fontSize: "0.92rem", letterSpacing: "0.04em", textDecoration: "none", fontFamily: "'Outfit', sans-serif" }}
+              >
+                Become a Member
+                <ChevronRight size={16} />
+              </a>
+              <button
+                onClick={() => scrollTo("hackathon")}
+                className="btn-outline"
+                style={{ display: "inline-flex", alignItems: "center", gap: "0.6rem", padding: "0.9rem 2rem", borderRadius: 12, fontSize: "0.92rem", letterSpacing: "0.04em", background: "none", cursor: "pointer", fontFamily: "'Outfit', sans-serif" }}
+              >
+                Learn More
+              </button>
+            </motion.div>
+
+            {/* Date */}
+            <motion.div
+              variants={fadeUp}
+              style={{ marginTop: "2.5rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.6rem", color: "var(--muted)", fontSize: "0.82rem", letterSpacing: "0.1em", textTransform: "uppercase" }}
+            >
+              <Calendar size={13} color="var(--gold)" />
+              <span>March 7, 2026 · 10 AM – 5 PM EST</span>
+            </motion.div>
+          </motion.div>
+
+          {/* Scroll indicator */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 2, duration: 1 }}
+            style={{ position: "absolute", bottom: 36, left: "50%", transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center", gap: "0.5rem" }}
+          >
+            <span style={{ fontFamily: "'DM Mono',monospace", fontSize: "0.65rem", letterSpacing: "0.15em", textTransform: "uppercase", color: "var(--muted)" }}>Scroll</span>
+            <motion.div
+              style={{ width: 1, height: 40, background: "linear-gradient(to bottom, var(--gold), transparent)" }}
+              animate={{ scaleY: [0.3, 1, 0.3], opacity: [0.4, 1, 0.4] }}
+              transition={{ duration: 2, repeat: Infinity }}
+            />
+          </motion.div>
+        </section>
+
+        {/* ══════════════════════════════════════
+            ABOUT
+        ══════════════════════════════════════ */}
+        <section id="about" className="grid-bg" style={{ position: "relative", background: "var(--surface)", padding: "8rem 2rem" }}>
+          <GoldLine />
+          <div style={{ maxWidth: 1100, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6rem", alignItems: "center" }}>
+            {/* Left */}
+            <motion.div
+              variants={fadeLeft}
+              initial="hidden"
+              whileInView="show"
+              viewport={{ once: true, margin: "-80px" }}
+            >
+              <div className="section-num">01</div>
+              <div style={{ marginTop: "-2rem", position: "relative" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1.5rem" }}>
+                  <div style={{ width: 40, height: 1, background: "var(--gold)", opacity: 0.6 }} />
+                  <span className="font-mono" style={{ fontSize: "0.68rem", letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--gold)" }}>About the Club</span>
+                </div>
+                <h2 className="font-display" style={{ fontSize: "clamp(2.5rem,5vw,4rem)", fontWeight: 400, lineHeight: 1.05, letterSpacing: "-0.02em", color: "var(--text)", marginBottom: "2rem" }}>
+                  Our<br /><em style={{ color: "var(--gold)", fontStyle: "italic" }}>Craft</em>
+                </h2>
+                <p style={{ fontSize: "1.05rem", color: "rgba(240,230,211,0.7)", lineHeight: 1.8, marginBottom: "1.5rem" }}>
+                  <strong style={{ color: "var(--gold-light)", fontWeight: 600 }}>FC Hacks</strong> is where high school students learn to build software with intention. We believe in code that's deliberate, design that's thoughtful, and projects that stand the test of time.
+                </p>
+                <blockquote style={{ borderLeft: "2px solid rgba(196,145,58,0.35)", paddingLeft: "1.25rem", marginTop: "2rem" }}>
+                  <p className="font-display" style={{ fontSize: "1.15rem", fontStyle: "italic", color: "rgba(240,230,211,0.5)", lineHeight: 1.7 }}>
+                    We may be a small group, but our ambitions are as solid as oak. Now we're bringing that same craftsmanship to our first hackathon.
+                  </p>
+                </blockquote>
+              </div>
+            </motion.div>
+
+            {/* Right - Image */}
+            <motion.div
+              variants={fadeRight}
+              initial="hidden"
+              whileInView="show"
+              viewport={{ once: true, margin: "-80px" }}
+              style={{ position: "relative" }}
+            >
+              {/* Decorative frame */}
+              <div style={{ position: "absolute", inset: -16, border: "1px solid rgba(196,145,58,0.1)", borderRadius: 20, pointerEvents: "none", zIndex: 0 }} />
+              <div style={{ position: "relative", borderRadius: 16, overflow: "hidden", border: "1px solid rgba(196,145,58,0.2)" }}>
+                <img
+                  src="https://images.unsplash.com/photo-1555066931-4365d14bab8c?fm=jpg&q=60&w=1600&ixlib=rb-4.1.0"
+                  alt="Code workshop"
+                  style={{ width: "100%", height: 420, objectFit: "cover", display: "block", filter: "brightness(0.8) saturate(0.9)" }}
+                />
+                <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(6,6,4,0.8) 0%, transparent 60%)" }} />
+                <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "2rem" }}>
+                  <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: "1.05rem", fontWeight: 600, color: "var(--text)" }}>The Workshop</div>
+                  <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: "0.82rem", color: "var(--muted)", marginTop: "0.25rem" }}>Where ideas become handcrafted software</div>
+                </div>
+              </div>
+              {/* Floating badge */}
+              <div style={{ position: "absolute", top: -20, right: -20, background: "var(--card)", border: "1px solid var(--gold-border)", borderRadius: 12, padding: "0.75rem 1rem", boxShadow: "0 8px 32px rgba(0,0,0,0.5)", zIndex: 10 }}>
+                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: "0.65rem", letterSpacing: "0.1em", color: "var(--gold)", textTransform: "uppercase", marginBottom: 4 }}>Est.</div>
+                <div className="font-display" style={{ fontSize: "1.5rem", fontWeight: 700, color: "var(--text)", lineHeight: 1 }}>2024</div>
+              </div>
+            </motion.div>
+          </div>
+          <GoldLine style={{ marginTop: "8rem" }} />
+        </section>
+
+        {/* ══════════════════════════════════════
+            HACKATHON
+        ══════════════════════════════════════ */}
+        <section id="hackathon" style={{ background: "var(--bg)", padding: "8rem 2rem" }}>
+          <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+            {/* Header */}
+            <motion.div
+              variants={stagger}
+              initial="hidden"
+              whileInView="show"
+              viewport={{ once: true }}
+              style={{ marginBottom: "5rem" }}
+            >
+              <motion.div variants={fadeUp} style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1.25rem" }}>
+                <div style={{ width: 40, height: 1, background: "var(--gold)", opacity: 0.6 }} />
+                <span className="font-mono" style={{ fontSize: "0.68rem", letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--gold)" }}>The Event</span>
+              </motion.div>
+              <motion.h2
+                variants={fadeUp}
+                className="font-display"
+                style={{ fontSize: "clamp(2.8rem,7vw,5.5rem)", fontWeight: 300, letterSpacing: "-0.03em", lineHeight: 0.95, color: "var(--text)" }}
+              >
+                Hackathon <em className="shimmer-text ml-4" style={{ fontStyle: "italic" }}>2026</em>
+              </motion.h2>
+              <motion.p variants={fadeUp} style={{ marginTop: "1.5rem", fontSize: "1.05rem", color: "var(--muted)", maxWidth: 520 }}>
+                A 100% online hackathon for Pittsburgh-area middle and high school students of all skill levels.
+              </motion.p>
+            </motion.div>
+
+            {/* Two Columns */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3rem", alignItems: "start" }}>
+              {/* Left — Details */}
+              <motion.div
+                variants={fadeLeft}
+                initial="hidden"
+                whileInView="show"
+                viewport={{ once: true }}
+              >
+                <div style={{ background: "var(--card)", border: "1px solid var(--gold-border)", borderRadius: 20, padding: "2.5rem", marginBottom: "1.5rem" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "2rem" }}>
+                    <div style={{ padding: "0.6rem", borderRadius: 10, background: "rgba(196,145,58,0.08)", border: "1px solid var(--gold-border)" }}>
+                      <Calendar size={18} color="var(--gold)" />
+                    </div>
+                    <h4 style={{ fontFamily: "'Outfit',sans-serif", fontSize: "1.1rem", fontWeight: 600, color: "var(--text)" }}>Event Details</h4>
+                  </div>
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                    {[
+                      {
+                        icon: <Calendar size={18} color="var(--gold)" />,
+                        label: "Date & Time",
+                        main: "Saturday, March 7, 2026",
+                        sub: "9:00 AM – 9:00 PM EST",
+                      },
+                      {
+                        icon: <Users size={18} color="var(--gold)" />,
+                        label: "Who Can Join",
+                        main: "Pittsburgh Area Students",
+                        sub: "Middle & High School · All skill levels",
+                      },
+                      {
+                        icon: <Trophy size={18} color="var(--gold)" />,
+                        label: "Format",
+                        main: "100% Online · Team or Solo",
+                        sub: "Theme announced at kickoff",
+                      },
+                    ].map(item => (
+                      <div key={item.label} className="detail-row">
+                        <div style={{ marginTop: 2, flexShrink: 0 }}>{item.icon}</div>
+                        <div>
+                          <div style={{ fontFamily: "'DM Mono',monospace", fontSize: "0.65rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--gold)", marginBottom: "0.35rem" }}>{item.label}</div>
+                          <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: "0.95rem", fontWeight: 600, color: "var(--text)" }}>{item.main}</div>
+                          <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: "0.82rem", color: "var(--muted)", marginTop: "0.2rem" }}>{item.sub}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Crafted by block */}
+                <div style={{ background: "linear-gradient(135deg, rgba(196,145,58,0.05), rgba(196,145,58,0.02))", border: "1px solid var(--gold-border)", borderRadius: 16, padding: "1.75rem" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.9rem" }}>
+                    <Coffee size={16} color="var(--gold)" />
+                    <span style={{ fontFamily: "'Outfit',sans-serif", fontSize: "0.95rem", fontWeight: 600, color: "var(--text)" }}>Crafted by FC Hacks</span>
+                  </div>
+                  <p style={{ fontFamily: "'Outfit',sans-serif", fontSize: "0.88rem", color: "var(--muted)", lineHeight: 1.75 }}>
+                    We're a small coding club from Fox Chapel High School. This is our first hackathon — a passion project built from the ground up. No corporate sponsors. Just students who love building things.
+                  </p>
+                </div>
+              </motion.div>
+
+              {/* Right — Register */}
+              <motion.div
+                variants={fadeRight}
+                initial="hidden"
+                whileInView="show"
+                viewport={{ once: true }}
+                style={{ background: "var(--card)", border: "1px solid var(--gold-border)", borderRadius: 20, padding: "2.5rem", position: "relative", overflow: "hidden" }}
+              >
+                {/* Decorative circle */}
+                <div style={{ position: "absolute", top: -60, right: -60, width: 200, height: 200, borderRadius: "50%", background: "radial-gradient(circle, rgba(196,145,58,0.06) 0%, transparent 70%)", pointerEvents: "none" }} />
+
+                <div style={{ textAlign: "center", marginBottom: "2rem", position: "relative", zIndex: 1 }}>
+                  <h4 className="font-display" style={{ fontSize: "2.2rem", fontWeight: 400, letterSpacing: "-0.02em", color: "var(--text)", marginBottom: "1rem" }}>
+                    Show Your Interest
+                  </h4>
+                  <p style={{ fontFamily: "'Outfit',sans-serif", fontSize: "0.9rem", color: "var(--muted)", lineHeight: 1.7, maxWidth: 320, margin: "0 auto" }}>
+                    This event runs if we hit our interest goal. Sign up and we'll reach out with all the details.
+                  </p>
+                </div>
+
+                <a
+                  href="https://forms.gle/5Q1ussbR1znusNUy8"
+                  target="_blank" rel="noopener noreferrer"
+                  className="btn-primary"
+                  style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "0.75rem", width: "100%", padding: "1.1rem", borderRadius: 14, fontSize: "1rem", textDecoration: "none", fontFamily: "'Outfit',sans-serif", marginBottom: "2rem" }}
+                >
+                  <Zap size={18} />
+                  I'm Interested
+                  <ChevronRight size={16} />
+                </a>
+
+                {/* Terminal block */}
+                <div style={{ background: "#080806", border: "1px solid var(--faint)", borderRadius: 14, padding: "1.5rem", fontFamily: "'DM Mono',monospace" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1.25rem" }}>
+                    {["#C96262","#C9A862","#62C962"].map(c => (
+                      <div key={c} style={{ width: 10, height: 10, borderRadius: "50%", background: c, opacity: 0.7 }} />
+                    ))}
+                    <span style={{ marginLeft: "0.75rem", fontSize: "0.62rem", letterSpacing: "0.1em", color: "var(--muted)", textTransform: "uppercase" }}>hackathon_2026.py</span>
+                  </div>
+                  {[
+                    { t: "def ", c: "var(--gold)", rest: [{ t: "hackathon_2026", c: "var(--gold-light)" }, { t: "():", c: "var(--muted)" }] },
+                    { indent: true, t: "date ", c: "var(--text)", rest: [{ t: "= ", c: "var(--muted)" }, { t: '"March 7, 2026"', c: "rgba(196,145,58,0.8)" }] },
+                    { indent: true, t: "theme ", c: "var(--text)", rest: [{ t: "= ", c: "var(--muted)" }, { t: '"Craft & Create"', c: "rgba(196,145,58,0.8)" }] },
+                    { indent: true, t: "location ", c: "var(--text)", rest: [{ t: "= ", c: "var(--muted)" }, { t: '"Online · Pittsburgh"', c: "rgba(196,145,58,0.8)" }] },
+                    { indent: true, t: "participants ", c: "var(--text)", rest: [{ t: "= ", c: "var(--muted)" }, { t: "await ", c: "var(--gold)" }, { t: "your_response()", c: "var(--gold-light)" }] },
+                    { prompt: true, t: "join_hackathon()", c: "var(--gold-light)" },
+                    { success: true, t: "[✓] Reserving your spot...", c: "rgba(100,200,120,0.8)" },
+                  ].map((line, i) => (
+                    <div key={i} style={{ fontSize: "0.76rem", lineHeight: 2, paddingLeft: line.indent ? "1.5rem" : 0 }}>
+                      {line.prompt && <span style={{ color: "var(--gold)", opacity: 0.5 }}>&gt;&gt;&gt; </span>}
+                      <span style={{ color: line.c }}>{line.t}</span>
+                      {line.rest?.map((r, j) => <span key={j} style={{ color: r.c }}>{r.t}</span>)}
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            </div>
+          </div>
+        </section>
+
+        {/* ══════════════════════════════════════
+            PRIZES  (NEW)
+        ══════════════════════════════════════ */}
+        <section id="prizes" className="grid-bg" style={{ background: "var(--surface)", padding: "8rem 2rem", position: "relative" }}>
+          <GoldLine />
+          <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+            {/* Header */}
+            <motion.div
+              variants={stagger}
+              initial="hidden"
+              whileInView="show"
+              viewport={{ once: true }}
+              style={{ textAlign: "center", marginBottom: "5rem" }}
+            >
+              <motion.div variants={fadeUp} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "1rem", marginBottom: "1.25rem" }}>
+                <div style={{ width: 40, height: 1, background: "var(--gold)", opacity: 0.6 }} />
+                <span className="font-mono" style={{ fontSize: "0.68rem", letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--gold)" }}>Awards</span>
+                <div style={{ width: 40, height: 1, background: "var(--gold)", opacity: 0.6 }} />
+              </motion.div>
+              <motion.h2
+                variants={fadeUp}
+                className="font-display"
+                style={{ fontSize: "clamp(2.8rem,7vw,5.5rem)", fontWeight: 300, letterSpacing: "-0.03em", lineHeight: 0.95, color: "var(--text)" }}
+              >
+                The <em className="shimmer-text" style={{ fontStyle: "italic" }}>Prizes</em>
+              </motion.h2>
+              <motion.p variants={fadeUp} style={{ marginTop: "1.5rem", fontSize: "1.05rem", color: "var(--muted)", maxWidth: 460, margin: "1.5rem auto 0" }}>
+                Real cash prizes for the top three teams. Build something remarkable and take home the gold.
+              </motion.p>
+            </motion.div>
+
+            {/* Podium — 2nd · 1st · 3rd */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1.15fr 1fr", gap: "1.5rem", alignItems: "end" }}>
+              {/* 2nd Place */}
+              <motion.div
+                variants={fadeLeft}
+                initial="hidden"
+                whileInView="show"
+                viewport={{ once: true }}
+                className="prize-silver"
+                style={{
+                  background: "var(--card)",
+                  border: "1px solid rgba(180,190,200,0.2)",
+                  borderRadius: 20,
+                  padding: "2.5rem 2rem",
+                  textAlign: "center",
+                  position: "relative",
+                  overflow: "hidden",
+                }}
+              >
+                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, transparent, rgba(180,190,200,0.5), transparent)" }} />
+                <div style={{ marginBottom: "1.5rem" }}>
+                  <div style={{
+                    width: 56, height: 56, borderRadius: "50%",
+                    background: "linear-gradient(135deg,#B0B8C0,#8A9299)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    margin: "0 auto 1rem",
+                    boxShadow: "0 4px 20px rgba(180,190,200,0.2)",
+                  }}>
+                    <Award size={26} color="rgba(240,245,250,0.9)" />
+                  </div>
+                  <span className="font-mono" style={{ fontSize: "0.65rem", letterSpacing: "0.18em", textTransform: "uppercase", color: "rgba(180,190,200,0.7)" }}>2nd Place</span>
+                </div>
+                <div className="font-display" style={{ fontSize: "clamp(2.5rem,5vw,3.5rem)", fontWeight: 700, color: "rgba(200,210,220,0.95)", letterSpacing: "-0.03em", lineHeight: 1 }}>
+                  $100
+                </div>
+                <div style={{ marginTop: "1rem", fontFamily: "'Outfit',sans-serif", fontSize: "0.82rem", color: "var(--muted)", lineHeight: 1.6 }}>
+                  Cash prize for the<br />runner-up team
+                </div>
+                {/* Podium bar */}
+                <div style={{ marginTop: "2rem", marginLeft: -32, marginRight: -32, marginBottom: -40, height: 24, background: "rgba(180,190,200,0.08)", borderTop: "1px solid rgba(180,190,200,0.15)" }} />
+              </motion.div>
+
+              {/* 1st Place — CENTER & TALLEST */}
+              <motion.div
+                variants={fadeUp}
+                initial="hidden"
+                whileInView="show"
+                viewport={{ once: true }}
+                className="prize-gold"
+                style={{
+                  background: "linear-gradient(180deg, #141208 0%, var(--card) 100%)",
+                  border: "1px solid rgba(196,145,58,0.4)",
+                  borderRadius: 24,
+                  padding: "3.5rem 2.5rem 3rem",
+                  textAlign: "center",
+                  position: "relative",
+                  overflow: "hidden",
+                  zIndex: 2,
+                }}
+              >
+                {/* Gold top bar */}
+                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: "linear-gradient(90deg, transparent, var(--gold-light), var(--gold), var(--gold-light), transparent)" }} />
+                {/* Glow */}
+                <div style={{ position: "absolute", top: -40, left: "50%", transform: "translateX(-50%)", width: 200, height: 200, borderRadius: "50%", background: "radial-gradient(circle, rgba(196,145,58,0.12) 0%, transparent 70%)", pointerEvents: "none" }} />
+
+                <div style={{ marginBottom: "1.75rem", position: "relative", zIndex: 1 }}>
+                  <motion.div
+                    animate={{ scale: [1, 1.08, 1], rotate: [0, 4, -4, 0] }}
+                    transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                    style={{
+                      width: 72, height: 72, borderRadius: "50%",
+                      background: "linear-gradient(135deg, #C4913A, #E8C97A, #C4913A)",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      margin: "0 auto 1.25rem",
+                      boxShadow: "0 8px 32px rgba(196,145,58,0.45)",
+                    }}
+                  >
+                    <Trophy size={32} color="#0D0C0A" />
+                  </motion.div>
+                  <span className="font-mono" style={{ fontSize: "0.68rem", letterSpacing: "0.2em", textTransform: "uppercase", color: "var(--gold)" }}>1st Place</span>
+                </div>
+
+                <div className="shimmer-text font-display" style={{ fontSize: "clamp(3rem,7vw,5rem)", fontWeight: 700, letterSpacing: "-0.03em", lineHeight: 1, position: "relative", zIndex: 1 }}>
+                  $200
+                </div>
+                <div style={{ marginTop: "0.5rem", fontFamily: "'DM Mono',monospace", fontSize: "0.7rem", letterSpacing: "0.1em", color: "var(--gold)", textTransform: "uppercase" }}>
+                  Grand Prize
+                </div>
+                <div style={{ marginTop: "1.25rem", fontFamily: "'Outfit',sans-serif", fontSize: "0.9rem", color: "rgba(240,230,211,0.6)", lineHeight: 1.6 }}>
+                  Cash prize for the<br />winning team
+                </div>
+
+                {/* Crown decoration */}
+                <div style={{ position: "absolute", top: 16, right: 20, fontFamily: "'Cormorant',serif", fontSize: "2rem", color: "rgba(196,145,58,0.15)" }}>✦</div>
+                <div style={{ position: "absolute", top: 16, left: 20, fontFamily: "'Cormorant',serif", fontSize: "2rem", color: "rgba(196,145,58,0.15)" }}>✦</div>
+              </motion.div>
+
+              {/* 3rd Place */}
+              <motion.div
+                variants={fadeRight}
+                initial="hidden"
+                whileInView="show"
+                viewport={{ once: true }}
+                className="prize-bronze"
+                style={{
+                  background: "var(--card)",
+                  border: "1px solid rgba(180,120,60,0.2)",
+                  borderRadius: 20,
+                  padding: "2.5rem 2rem",
+                  textAlign: "center",
+                  position: "relative",
+                  overflow: "hidden",
+                }}
+              >
+                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, transparent, rgba(180,120,60,0.5), transparent)" }} />
+                <div style={{ marginBottom: "1.5rem" }}>
+                  <div style={{
+                    width: 56, height: 56, borderRadius: "50%",
+                    background: "linear-gradient(135deg,#B07840,#7A5228)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    margin: "0 auto 1rem",
+                    boxShadow: "0 4px 20px rgba(180,120,60,0.2)",
+                  }}>
+                    <Award size={26} color="rgba(255,220,180,0.9)" />
+                  </div>
+                  <span className="font-mono" style={{ fontSize: "0.65rem", letterSpacing: "0.18em", textTransform: "uppercase", color: "rgba(180,120,60,0.7)" }}>3rd Place</span>
+                </div>
+                <div className="font-display" style={{ fontSize: "clamp(2.5rem,5vw,3.5rem)", fontWeight: 700, color: "rgba(220,160,90,0.95)", letterSpacing: "-0.03em", lineHeight: 1 }}>
+                  $50
+                </div>
+                <div style={{ marginTop: "1rem", fontFamily: "'Outfit',sans-serif", fontSize: "0.82rem", color: "var(--muted)", lineHeight: 1.6 }}>
+                  Cash prize for the<br />third-place team
+                </div>
+                <div style={{ marginTop: "2rem", marginLeft: -32, marginRight: -32, marginBottom: -40, height: 16, background: "rgba(180,120,60,0.06)", borderTop: "1px solid rgba(180,120,60,0.12)" }} />
+              </motion.div>
+            </div>
+
+            {/* Note below */}
+            <motion.p
+              variants={fadeUp}
+              initial="hidden"
+              whileInView="show"
+              viewport={{ once: true }}
+              style={{ textAlign: "center", marginTop: "4rem", fontFamily: "'DM Mono',monospace", fontSize: "0.72rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--muted)", opacity: 0.7 }}
+            >
+              Prizes paid out to verified winners following the event
+            </motion.p>
+          </div>
+          <GoldLine style={{ marginTop: "8rem" }} />
+        </section>
+
+        {/* ══════════════════════════════════════
+            DONATE
+        ══════════════════════════════════════ */}
+        <section id="donate" style={{ background: "var(--bg)", padding: "8rem 2rem" }}>
+          <div style={{ maxWidth: 900, margin: "0 auto" }}>
+            <motion.div
+              variants={stagger}
+              initial="hidden"
+              whileInView="show"
+              viewport={{ once: true }}
+              style={{ textAlign: "center", marginBottom: "3.5rem" }}
+            >
+              <motion.div variants={fadeUp} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "0.6rem", marginBottom: "1.5rem" }}>
+                <div style={{ padding: "0.7rem", borderRadius: 12, background: "rgba(196,145,58,0.08)", border: "1px solid var(--gold-border)" }}>
+                  <Heart size={20} color="var(--gold)" />
+                </div>
+              </motion.div>
+              <motion.h2
+                variants={fadeUp}
+                className="font-display"
+                style={{ fontSize: "clamp(2.2rem,5vw,4rem)", fontWeight: 400, letterSpacing: "-0.02em", color: "var(--text)", marginBottom: "1.25rem" }}
+              >
+                Support Our Craft
+              </motion.h2>
+              <motion.p variants={fadeUp} style={{ fontSize: "1.05rem", color: "var(--muted)", lineHeight: 1.75, maxWidth: 540, margin: "0 auto" }}>
+                As a student-run club, we're building everything from scratch. Your support helps us create meaningful experiences for young developers in our community.
+              </motion.p>
+            </motion.div>
+
+            <motion.div
+              variants={fadeUp}
+              initial="hidden"
+              whileInView="show"
+              viewport={{ once: true }}
+              style={{ background: "var(--card)", border: "1px solid var(--gold-border)", borderRadius: 24, padding: "3rem", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3rem", alignItems: "center" }}
+            >
+              {/* Where it goes */}
+              <div>
+                <h4 style={{ fontFamily: "'Outfit',sans-serif", fontSize: "1.05rem", fontWeight: 600, color: "var(--text)", marginBottom: "1.75rem" }}>
+                  Where Your Support Goes
+                </h4>
+                <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: "1.1rem" }}>
+                  {[
+                    "Hackathon infrastructure and tools",
+                    "Learning resources for club members",
+                    "Future community events and workshops",
+                    "Supporting student-led initiatives",
+                  ].map(item => (
+                    <li key={item} style={{ display: "flex", alignItems: "center", gap: "0.9rem" }}>
+                      <div style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--gold)", flexShrink: 0 }} />
+                      <span style={{ fontFamily: "'Outfit',sans-serif", fontSize: "0.9rem", color: "rgba(240,230,211,0.65)", lineHeight: 1.5 }}>{item}</span>
                     </li>
                   ))}
                 </ul>
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </header>
 
-      {/* Main Hero Section - Smokehouse Vibes */}
-      <main className="relative min-h-screen flex items-center justify-center overflow-hidden">
-        <video
-          autoPlay
-          loop
-          muted
-          playsInline
-          className="absolute inset-0 w-full h-full object-cover object-center"
-          src="/codingcinematicvid.mp4"
-          aria-hidden="true"
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/50 to-black/70" />
-        
-        <motion.div
-          className="absolute inset-0 pointer-events-none"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 2, ease: "easeOut" }}
-        >
-          {[...Array(20)].map((_, i) => (
-            <motion.div
-              key={i}
-              className="absolute w-1 h-1 bg-violet-400/30 rounded-full"
-              style={{
-                left: `${Math.random() * 100}%`,
-                top: `${Math.random() * 100}%`,
-              }}
-              animate={{
-                opacity: [0.2, 0.8, 0.2],
-                scale: [1, 1.5, 1],
-              }}
-              transition={{
-                duration: 3 + Math.random() * 2,
-                repeat: Infinity,
-                delay: Math.random() * 2,
-              }}
-            />
-          ))}
-        </motion.div>
-
-        <motion.section
-          className="relative z-20 max-w-5xl mx-4 md:mx-6 w-full rounded-3xl p-8 md:p-12 backdrop-blur-3xl bg-gradient-to-br from-black/50 via-black/40 to-black/50 border border-white/10 shadow-2xl"
-          variants={containerVariants}
-          initial="hidden"
-          animate={reduceMotion ? undefined : "show"}
-        >
-          <motion.div variants={itemVariants} className="text-center">
-            <motion.div
-              className="inline-block mb-4 px-4 py-2 rounded-full bg-gradient-to-r from-violet-500/20 to-indigo-500/20 border border-violet-400/30"
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-            >
-              <span className="text-sm font-medium text-violet-300">High School Coding Club</span>
-            </motion.div>
-            <h1 className="text-5xl md:text-6xl lg:text-7xl font-extrabold leading-tight tracking-tight">
-              <span className="text-white">
-                <span className="text-white">Build.</span> <span className="text-sky-100">Create.</span> <span className="text-emerald-100">Ship.</span> 
-              </span>
-            </h1>
-          </motion.div>
-          <motion.div variants={itemVariants} className="mt-6 text-gray-100 max-w-2xl mx-auto">
-            <p className="text-lg md:text-xl flex justify-center">
-              We&apos;re a small, Fox Chapel Area club that treats code like craft.
-            </p>
-          </motion.div>
-          <motion.div variants={itemVariants} className="mt-6 text-gray-100 max-w-2xl mx-auto">
-            <p className="text-lg md:text-xl flex justify-center">
-              <span className="text-emerald-200 font-bold mr-2">SPECIAL EVENT!</span> We are hosting our own online hackathon!
-            </p>
-          </motion.div>
-          <motion.div variants={itemVariants} className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
-            <motion.a
-              href="https://docs.google.com/forms/d/e/1FAIpQLSdJ8qUgqsHDBEELzE5xT6zU8-g2xYbQiiUIYlD3JOQfC30e4w/viewform?usp=dialog"
-              className="group relative inline-flex items-center gap-3 px-8 py-4 rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 text-white font-semibold shadow-lg overflow-hidden"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <motion.div
-                className="absolute inset-0 bg-gradient-to-r from-violet-600 to-indigo-600"
-                initial={{ x: "-100%" }}
-                whileHover={{ x: 0 }}
-                transition={{ duration: 0.3 }}
-              />
-              <span className="relative z-10">Become a member of the club!</span>
-              <motion.span
-                className="relative z-10"
-                animate={{ x: [0, 4, 0] }}
-                transition={{ duration: 1.5, repeat: Infinity }}
-              >
-                →
-              </motion.span>
-            </motion.a>
-            <motion.a
-              href="#hackathon"
-              className="inline-flex items-center gap-3 px-8 py-4 rounded-full border border-white/20 text-white/90 font-medium hover:bg-white/5 transition"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              Learn More
-            </motion.a>
-          </motion.div>
-          <motion.div 
-            variants={itemVariants} 
-            className="mt-8 flex items-center justify-center gap-2 text-sm"
-          >
-            <Calendar size={16} className="text-violet-400" />
-            <span className="text-gray-300">March 7, 2026 · Hackathon!</span>
-          </motion.div>
-        </motion.section>
-      </main>
-
-
-      {/* About Section - Rustic Wood Panel */}
-      <section id="about" className="relative min-h-screen bg-[#0f0e0c] flex items-center overflow-hidden">
-        {/* Wood Texture Background */}
-        <div className="absolute inset-0 opacity-5">
-          <div className="absolute top-20 left-10 w-72 h-72 bg-amber-900/10 rounded-full blur-3xl" />
-          <div className="absolute bottom-20 right-10 w-96 h-96 bg-[#2c3e1f]/10 rounded-full blur-3xl" />
-        </div>
-        
-        {/* Wood Plank Decoration */}
-        <div className="absolute left-0 top-1/4 w-4 h-64 bg-gradient-to-b from-amber-800/20 via-amber-700/10 to-transparent" />
-        <div className="absolute right-0 bottom-1/4 w-4 h-64 bg-gradient-to-t from-amber-800/20 via-amber-700/10 to-transparent" />
-        
-        <div className="max-w-6xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-16 px-4 md:px-6 py-16 md:py-24 items-center relative z-10">
-          <motion.div
-            className="order-2 lg:order-1"
-            initial={{ opacity: 0, x: -40 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true, margin: "-100px" }}
-            transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-          >
-            <div className="relative">
-              {/* Section Header with Wood Accent */}
-              <div className="flex items-center gap-4 mb-8">
-                <div className="w-12 h-1 bg-gradient-to-r from-amber-600 to-amber-400 rounded-full" />
-                <motion.h2 
-                  className="text-4xl md:text-5xl font-extrabold text-amber-100"
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.6, delay: 0.2 }}
-                >
-                  Our Craft
-                </motion.h2>
-              </div>
-              
-              <motion.p 
-                className="text-amber-100/80 text-lg max-w-xl leading-relaxed mb-8 p-6 rounded-xl bg-gradient-to-br from-[#1a1814]/50 to-[#0f0e0c]/50 border border-amber-800/20"
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.6, delay: 0.3 }}
-              >
-                <span className="text-amber-300 font-semibold">FC Hacks</span> is where high school students learn to build software . We believe in code that's intentional, 
-                design that's thoughtful, and projects that stand the test of time.
-              </motion.p>
-              
-              
-              <motion.p 
-                className="text-amber-200/70 text-base max-w-xl leading-relaxed italic"
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.6, delay: 0.5 }}
-              >
-                "We may be a small group, but our ambitions are as solid as oak. 
-                Now we're bringing that same craftsmanship to our first hackathon."
-              </motion.p>
-            </div>
-          </motion.div>
-          
-          <motion.div
-            className="order-1 lg:order-2"
-            initial={{ opacity: 0, scale: 0.95, rotateY: -10 }}
-            whileInView={{ opacity: 1, scale: 1, rotateY: 0 }}
-            viewport={{ once: true, margin: "-100px" }}
-            transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-          >
-            <div className="relative group">
-              {/* Wood Frame */}
-              <div className="absolute -inset-4 bg-gradient-to-br from-amber-900/30 via-amber-800/20 to-[#2c3e1f]/30 rounded-2xl blur-sm" />
-              <div className="relative rounded-xl overflow-hidden shadow-2xl border-2 border-amber-800/40 bg-gradient-to-br from-[#1a1814] to-[#0f0e0c]">
-                <div className="absolute inset-0 bg-gradient-to-t from-amber-900/10 via-transparent to-transparent z-10" />
-                <img
-                  src="https://images.unsplash.com/photo-1555066931-4365d14bab8c?fm=jpg&q=60&w=1600&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8Y29kZSUyMHdvcmtzaG9wfGVufDB8fDB8fHww"
-                  alt="Code craftsmanship workshop"
-                  className="w-full h-64 sm:h-80 md:h-96 object-cover opacity-90 group-hover:opacity-100 group-hover:scale-105 transition-all duration-700"
-                />
-                {/* Overlay Text */}
-                <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/80 via-black/40 to-transparent z-20">
-                  <div className="text-amber-100 text-lg font-semibold">The Workshop</div>
-                  <div className="text-amber-200/70 text-sm">Where ideas become handcrafted software</div>
+              {/* CTA */}
+              <div style={{ textAlign: "center" }}>
+                <div style={{ background: "rgba(196,145,58,0.05)", border: "1px solid var(--gold-border)", borderRadius: 16, padding: "2rem", marginBottom: "1.5rem" }}>
+                  <div className="font-mono" style={{ fontSize: "0.65rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--gold)", marginBottom: "0.5rem" }}>Help us reach our goal</div>
+                  <div className="font-display shimmer-text" style={{ fontSize: "3rem", fontWeight: 700, lineHeight: 1 }}>$2,500</div>
+                  <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: "0.8rem", color: "var(--muted)", marginTop: "0.4rem" }}>for hackathon excellence</div>
                 </div>
-              </div>
-            </div>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* Hackathon Section - Smokehouse Announcement */}
-      <section id="hackathon" className="relative px-4 md:px-6 py-16 md:py-24 bg-[#212622] overflow-hidden">
-        {/* Wood Panel Background */}
-        <div className="absolute inset-0 opacity-5">
-          <div className="absolute top-0 left-1/4 w-96 h-96 bg-amber-900/10 rounded-full blur-3xl" />
-          <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-[#2c3e1f]/10 rounded-full blur-3xl" />
-        </div>
-
-        {/* Wood Beam Accents */}
-        <div className="absolute top-20 left-0 w-32 h-2 bg-gradient-to-r from-amber-800/20 to-transparent" />
-        <div className="absolute top-20 right-0 w-32 h-2 bg-gradient-to-l from-amber-800/20 to-transparent" />
-
-        <div className="max-w-7xl mx-auto relative z-10">
-          <motion.div
-            className="text-center mb-16"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-          >
-            <motion.div
-              className="inline-block mb-6"
-              initial={{ scale: 0 }}
-              whileInView={{ scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ type: "spring", stiffness: 200, damping: 15 }}
-            >
-            </motion.div>
-            <h3 className="text-4xl md:text-6xl font-extrabold bg-gradient-to-r from-amber-200 via-amber-300 to-amber-400 bg-clip-text text-transparent mb-6">
-              Hackathon 2026
-            </h3>
-            <p className="text-lg md:text-xl text-amber-100/80 max-w-2xl mx-auto">
-              A 100% online hackathon for Pittsburgh students
-            </p>
-          </motion.div>
-
-          <div className="grid lg:grid-cols-2 gap-12 items-start">
-            {/* Left Column - Event Details */}
-            <div className="space-y-8">
-              <motion.div
-                className="rounded-2xl p-8 bg-gradient-to-br from-[#1a1814] to-[#0f0e0c] border-2 border-amber-800/30 shadow-xl"
-                initial={{ opacity: 0, x: -30 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.7 }}
-              >
-                <h4 className="text-2xl font-bold text-amber-100 mb-8 flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-gradient-to-br from-amber-900/30 to-amber-800/30">
-                    <Calendar className="text-amber-300" size={24} />
-                  </div>
-                  Event Details
-                </h4>
-                
-                <div className="space-y-4">
-                  <div className="flex items-start gap-4 p-5 rounded-xl bg-gradient-to-r from-amber-900/20 to-amber-800/10 border border-amber-800/30">
-                    <Calendar className="text-amber-400 mt-1 flex-shrink-0" size={20} />
-                    <div>
-                      <div className="text-sm text-amber-400 font-medium mb-1">Date & Time</div>
-                      <div className="text-amber-100 font-semibold">Saturday, March 7, 2026</div>
-                      <div className="text-amber-200/70 text-sm">9:00 AM - 9:00 PM EST</div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-start gap-4 p-5 rounded-xl bg-gradient-to-r from-amber-900/20 to-amber-800/10 border border-amber-800/30">
-                    <UsersIcon className="text-amber-400 mt-1 flex-shrink-0" size={20} />
-                    <div>
-                      <div className="text-sm text-amber-400 font-medium mb-1">Participants</div>
-                      <div className="text-amber-100 font-semibold">Pittsburgh Area Students</div>
-                      <div className="text-amber-200/70 text-sm">Middle & High School · All skill levels welcome</div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-start gap-4 p-5 rounded-xl bg-gradient-to-r from-amber-900/20 to-amber-800/10 border border-amber-800/30">
-                    <Trophy className="text-amber-400 mt-1 flex-shrink-0" size={20} />
-                    <div>
-                      <div className="text-sm text-amber-400 font-medium mb-1">Format</div>
-                      <div className="text-amber-100 font-semibold">100% Online · Team or Solo</div>
-                      <div className="text-amber-200/70 text-sm">Themes announced at kickoff</div>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-
-              <motion.div
-                className="rounded-2xl p-8 bg-gradient-to-br from-[#2c3e1f]/20 to-amber-900/20 border border-amber-800/30"
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.7, delay: 0.1 }}
-              >
-                <h5 className="text-xl font-bold text-amber-100 mb-4 flex items-center gap-3">
-                  <div className="p-1.5 rounded-md bg-amber-900/30">
-                    <Coffee size={18} className="text-amber-300" />
-                  </div>
-                  Crafted by FC Hacks
-                </h5>
-                <p className="text-amber-200/80 leading-relaxed">
-                  We're a small coding club from Fox Chapel High School. This is our first hackathon—a passion project 
-                  built from the ground up. No corporate sponsors, no flashy prizes—just students coming together 
-                  to build something meaningful, like craftsmen in a smokehouse perfecting their craft.
-                </p>
-              </motion.div>
-            </div>
-
-            {/* Right Column - Registration */}
-            <motion.div
-              className="rounded-3xl p-8 md:p-10 bg-gradient-to-br from-[#1a1814] to-[#0f0e0c] border-2 border-amber-800/40 shadow-2xl relative overflow-hidden"
-              initial={{ opacity: 0, x: 30 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.7, delay: 0.2 }}
-            >
-              {/* Wood Grain Overlay */}
-              <div className="absolute inset-0 opacity-5 pointer-events-none"
-                   style={{
-                     backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23d4a574' fill-opacity='0.2'%3E%3Crect x='0' y='0' width='100' height='100'/%3E%3Crect x='0' y='0' width='20' height='100' transform='rotate(45 50 50)'/%3E%3C/g%3E%3C/svg%3E")`,
-                   }}
-              />
-              
-              {/* Animated Wood Knot */}
-              <motion.div
-                className="absolute top-6 right-6 w-20 h-20 rounded-full bg-gradient-to-br from-amber-900/10 to-amber-800/10 border border-amber-700/20 flex items-center justify-center"
-                animate={{ scale: [1, 1.1, 1], rotate: [0, 5, 0] }}
-                transition={{ duration: 4, repeat: Infinity }}
-              >
-                <div className="text-amber-600/40 text-2xl font-bold">✻</div>
-              </motion.div>
-              
-              <div className="text-center mb-10 relative z-10">
-                <h4 className="text-3xl md:text-4xl font-bold text-amber-100 mb-6">
-                  Show Your Interest
-                </h4>
-                <p className="text-amber-200/80 leading-relaxed max-w-md mx-auto">
-                  This event happens if we get enough interest from the community. 
-                  Let us know you're interested, and we'll reach out with details once we hit our goal.
-                </p>
-              </div>
-
-              <motion.a
-                href="https://forms.gle/5Q1ussbR1znusNUy8"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group relative w-full inline-flex items-center justify-center gap-4 px-10 py-6 rounded-xl bg-gradient-to-r from-amber-700 to-amber-800 text-amber-50 text-xl font-bold shadow-2xl overflow-hidden mb-10"
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.98 }}
-                style={{
-                  boxShadow: "0 15px 40px rgba(139, 69, 19, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3)"
-                }}
-              >
-                <motion.div
-                  className="absolute inset-0 bg-gradient-to-r from-amber-800 to-amber-900"
-                  initial={{ x: "-100%" }}
-                  whileHover={{ x: 0 }}
-                  transition={{ duration: 0.4 }}
-                />
-                <span className="relative z-10 flex items-center gap-3">
-                  <Zap size={20} className="text-amber-200" />
-                  I'm Interested
-                </span>
-                <motion.span
-                  className="relative z-10"
-                  animate={{ x: [0, 5, 0] }}
-                  transition={{ duration: 1.5, repeat: Infinity }}
-                >
-                  <ChevronRight size={20} />
-                </motion.span>
-              </motion.a>
-
-              {/* Code Display - Wooden Terminal */}
-              <motion.div
-                className="relative rounded-xl overflow-hidden border-2 border-amber-800/30 bg-gradient-to-br from-[#0f0e0c] to-black p-6"
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.7, delay: 0.3 }}
-              >
-                <div className="relative">
-                  {/* Terminal Header */}
-                  <div className="flex items-center gap-2 mb-4">
-                    <div className="w-3 h-3 rounded-full bg-amber-600/60" />
-                    <div className="w-3 h-3 rounded-full bg-amber-500/60" />
-                    <div className="w-3 h-3 rounded-full bg-amber-400/60" />
-                    <div className="ml-4 text-xs text-amber-500 font-mono">smokehouse_hackathon.py</div>
-                  </div>
-                  
-                  {/* Terminal Content */}
-                  <div className="font-mono text-sm space-y-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-amber-600">def</span>
-                      <span className="text-amber-300">hackathon_2026</span>
-                      <span className="text-amber-500">():</span>
-                    </div>
-                    <div className="ml-4">
-                      <span className="text-amber-400">date</span>
-                      <span className="text-amber-500"> = </span>
-                      <span className="text-amber-200">"March 7, 2026"</span>
-                    </div>
-                    <div className="ml-4">
-                      <span className="text-amber-400">theme</span>
-                      <span className="text-amber-500"> = </span>
-                      <span className="text-amber-200">"Craft & Create"</span>
-                    </div>
-                    <div className="ml-4">
-                      <span className="text-amber-400">location</span>
-                      <span className="text-amber-500"> = </span>
-                      <span className="text-amber-200">"Virtual Smokehouse"</span>
-                    </div>
-                    <div className="ml-4">
-                      <span className="text-amber-400">participants</span>
-                      <span className="text-amber-500"> = </span>
-                      <span className="text-amber-300">await</span>
-                      <span className="text-amber-200"> your_response()</span>
-                    </div>
-                    <div className="mt-4">
-                      <span className="text-amber-500">&gt;&gt;&gt; </span>
-                      <span className="text-amber-300">join_hackathon()</span>
-                    </div>
-                    <div>
-                      <span className="text-amber-400">[✓]</span>
-                      <span className="text-amber-200 ml-2">Reserving your spot...</span>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            </motion.div>
-          </div>
-        </div>
-      </section>
-
-      {/* Donation Section */}
-      <section id="donate" className="relative px-4 md:px-6 py-20 md:py-28 bg-gradient-to-b from-[#0a0907] to-[#080705] overflow-hidden">
-        {/* Wood Beam */}
-        <div className="absolute top-1/2 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-amber-800/30 to-transparent" />
-        
-        <div className="max-w-4xl mx-auto relative z-10">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="text-center mb-12"
-          >
-            <div className="inline-block mb-6 p-3 rounded-full bg-gradient-to-r from-amber-900/30 to-[#2c3e1f]/30 border border-amber-700/30">
-              <Heart size={24} className="text-amber-400" />
-            </div>
-            <h3 className="text-3xl md:text-4xl font-bold text-amber-100 mb-6">
-              Support Our Craft
-            </h3>
-            <p className="text-lg md:text-xl text-amber-200/80 max-w-2xl mx-auto leading-relaxed">
-              As a student-run club, we're building everything from scratch. Your support helps us 
-              create meaningful experiences for young developers in our community.
-            </p>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-            className="bg-gradient-to-br from-[#1a1814] to-[#0f0e0c] rounded-2xl p-8 border-2 border-amber-800/30 shadow-2xl"
-          >
-            <div className="grid md:grid-cols-2 gap-8 items-center">
-              <div>
-                <h4 className="text-2xl font-bold text-amber-100 mb-4">Where Your Support Goes</h4>
-                <ul className="space-y-4">
-                  <li className="flex items-start gap-3">
-                    <div className="mt-1 w-2 h-2 rounded-full bg-amber-500" />
-                    <span className="text-amber-200/80">Hackathon infrastructure and tools</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <div className="mt-1 w-2 h-2 rounded-full bg-amber-500" />
-                    <span className="text-amber-200/80">Learning resources for club members</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <div className="mt-1 w-2 h-2 rounded-full bg-amber-500" />
-                    <span className="text-amber-200/80">Future community events and workshops</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <div className="mt-1 w-2 h-2 rounded-full bg-amber-500" />
-                    <span className="text-amber-200/80">Supporting student-led initiatives</span>
-                  </li>
-                </ul>
-              </div>
-              
-              <div className="text-center">
-                <div className="mb-6 p-6 rounded-xl bg-gradient-to-br from-amber-900/20 to-[#2c3e1f]/20 border border-amber-800/30">
-                  <div className="text-amber-400 text-sm mb-2">Help Us Reach Our Goal</div>
-                  <div className="text-3xl font-bold text-amber-200">$2,500</div>
-                  <div className="text-amber-300/70 text-sm">for hackathon excellence</div>
-                </div>
-                
-                <motion.a
+                <a
                   href="https://gofund.me/a3b0683db"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group relative inline-flex items-center justify-center gap-3 w-full px-8 py-5 rounded-xl bg-gradient-to-r from-amber-700 to-amber-800 text-amber-50 text-lg font-bold shadow-xl overflow-hidden"
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.98 }}
-                  style={{
-                    boxShadow: "0 10px 30px rgba(139, 69, 19, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2)"
-                  }}
+                  target="_blank" rel="noopener noreferrer"
+                  className="btn-primary"
+                  style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "0.65rem", width: "100%", padding: "1rem", borderRadius: 12, fontSize: "0.95rem", textDecoration: "none", fontFamily: "'Outfit',sans-serif" }}
                 >
-                  <motion.div
-                    className="absolute inset-0 bg-gradient-to-r from-amber-800 to-amber-900"
-                    initial={{ x: "-100%" }}
-                    whileHover={{ x: 0 }}
-                    transition={{ duration: 0.4 }}
-                  />
-                  <span className="relative z-10 flex items-center gap-3">
-                    <Heart size={20} className="text-amber-200" />
-                    Support Our Mission
-                  </span>
-                </motion.a>
-                
-                <p className="text-amber-400/60 text-sm mt-4">
+                  <Heart size={16} />
+                  Support Our Mission
+                </a>
+                <p style={{ fontFamily: "'DM Mono',monospace", fontSize: "0.65rem", letterSpacing: "0.08em", color: "rgba(122,110,95,0.5)", marginTop: "1rem" }}>
                   Every contribution helps us craft better experiences
                 </p>
               </div>
-            </div>
-          </motion.div>
-        </div>
-      </section>
+            </motion.div>
+          </div>
+        </section>
 
-      {/* Join Section - Final Call */}
-      <section id="join" className="relative px-4 md:px-6 py-20 md:py-28 bg-gradient-to-b from-[#080705] to-black overflow-hidden">
-        {/* Wood Texture */}
-        <div className="absolute inset-0 opacity-5"
-             style={{
-               backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23d4a574' fill-opacity='0.1'%3E%3Crect x='0' y='0' width='100' height='100'/%3E%3Crect x='0' y='0' width='20' height='100' transform='rotate(45 50 50)'/%3E%3Crect x='0' y='0' width='20' height='100' transform='rotate(135 50 50)'/%3E%3Crect x='0' y='0' width='20' height='100' transform='rotate(90 50 50)'/%3E%3C/g%3E%3C/svg%3E")`,
-             }}
-        />
-        
-        <div className="max-w-3xl mx-auto relative z-10">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="text-center mb-12"
-          >
-            <h3 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-amber-200 to-amber-300 bg-clip-text text-transparent mb-6">
-              Join the Workshop
-            </h3>
-            <motion.p
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
+        {/* ══════════════════════════════════════
+            JOIN
+        ══════════════════════════════════════ */}
+        <section id="join" style={{ background: "var(--bg)", padding: "8rem 2rem 6rem", position: "relative", overflow: "hidden" }}>
+          <GoldLine />
+          {/* BG glow */}
+          <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: 600, height: 400, background: "radial-gradient(ellipse, rgba(196,145,58,0.05) 0%, transparent 70%)", pointerEvents: "none" }} />
+
+          <div style={{ maxWidth: 680, margin: "0 auto", textAlign: "center", position: "relative", zIndex: 1 }}>
+            <motion.div
+              variants={stagger}
+              initial="hidden"
+              whileInView="show"
               viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: 0.1 }}
-              className="text-lg md:text-xl text-amber-200/80 max-w-2xl mx-auto leading-relaxed mb-10"
             >
-              Whether you want to participate in the hackathon, join our weekly club meetings, 
-              or support our mission—there's a place for you in our workshop.
-            </motion.p>
-          </motion.div>
-          
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-            className="flex flex-col sm:flex-row items-center justify-center gap-6"
-          >
-            <motion.a
-              href="https://docs.google.com/forms/d/e/1FAIpQLSdJ8qUgqsHDBEELzE5xT6zU8-g2xYbQiiUIYlD3JOQfC30e4w/viewform?usp=dialog"
-              className="group relative inline-flex items-center gap-4 px-10 py-5 rounded-xl bg-gradient-to-r from-amber-700 to-amber-800 text-amber-50 text-lg font-bold shadow-xl overflow-hidden"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              style={{
-                boxShadow: "0 15px 40px rgba(139, 69, 19, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3)"
-              }}
-            >
+              <motion.div variants={fadeUp} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "1rem", marginBottom: "1.25rem" }}>
+                <div style={{ width: 40, height: 1, background: "var(--gold)", opacity: 0.6 }} />
+                <span className="font-mono" style={{ fontSize: "0.68rem", letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--gold)" }}>Get Involved</span>
+                <div style={{ width: 40, height: 1, background: "var(--gold)", opacity: 0.6 }} />
+              </motion.div>
+
+              <motion.h2
+                variants={fadeUp}
+                className="font-display"
+                style={{ fontSize: "clamp(2.5rem,7vw,5rem)", fontWeight: 300, letterSpacing: "-0.03em", lineHeight: 0.95, color: "var(--text)", marginBottom: "1.5rem" }}
+              >
+                Join the<br /><em className="shimmer-text" style={{ fontStyle: "italic" }}>Workshop</em>
+              </motion.h2>
+
+              <motion.p variants={fadeUp} style={{ fontSize: "1.05rem", color: "var(--muted)", lineHeight: 1.75, marginBottom: "3rem", maxWidth: 480, margin: "0 auto 3rem" }}>
+                Whether you want to join the hackathon, attend weekly club meetings, or support our mission — there's a place for you here.
+              </motion.p>
+
+              <motion.div variants={fadeUp} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "1rem", flexWrap: "wrap", marginBottom: "5rem" }}>
+                <a
+                  href="https://docs.google.com/forms/d/e/1FAIpQLSdJ8qUgqsHDBEELzE5xT6zU8-g2xYbQiiUIYlD3JOQfC30e4w/viewform?usp=dialog"
+                  className="btn-primary"
+                  style={{ display: "inline-flex", alignItems: "center", gap: "0.65rem", padding: "1rem 2.25rem", borderRadius: 14, fontSize: "0.95rem", letterSpacing: "0.02em", textDecoration: "none", fontFamily: "'Outfit',sans-serif" }}
+                >
+                  <Users size={17} />
+                  Become a Member
+                </a>
+                <button
+                  onClick={() => scrollTo("hackathon")}
+                  className="btn-outline"
+                  style={{ display: "inline-flex", alignItems: "center", gap: "0.65rem", padding: "1rem 2.25rem", borderRadius: 14, fontSize: "0.95rem", background: "none", cursor: "pointer", fontFamily: "'Outfit',sans-serif" }}
+                >
+                  Hackathon Details
+                  <ChevronRight size={15} />
+                </button>
+              </motion.div>
+
+              {/* Footer line */}
               <motion.div
-                className="absolute inset-0 bg-gradient-to-r from-amber-800 to-amber-900"
-                initial={{ x: "-100%" }}
-                whileHover={{ x: 0 }}
-                transition={{ duration: 0.4 }}
-              />
-              <span className="relative z-10 flex items-center gap-3">
-                <UsersIcon size={20} />
-                Become a Member
-              </span>
-            </motion.a>
-            
-            <motion.a
-              href="#hackathon"
-              className="group inline-flex items-center gap-3 px-10 py-5 rounded-xl border-2 border-amber-700/50 text-amber-200 font-medium hover:bg-amber-900/20 transition-all"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <span>Learn About Hackathon</span>
-              <ChevronRight size={16} className="group-hover:translate-x-1 transition-transform" />
-            </motion.a>
-          </motion.div>
-          
-          {/* Final Wood Accent */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            transition={{ duration: 1, delay: 0.4 }}
-            className="mt-16 pt-8 border-t border-amber-900/30"
-          >
-            <p className="text-center text-amber-400/60 text-sm">
-              FC Hacks · Crafting code with care since 2024 · Fox Chapel Area School District
-            </p>
-          </motion.div>
-        </div>
-      </section>
-    </div>
+                variants={fadeUp}
+                style={{ paddingTop: "2.5rem", borderTop: "1px solid var(--faint)" }}
+              >
+                <p className="font-mono" style={{ fontSize: "0.65rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(122,110,95,0.45)" }}>
+                  FC Hacks · Crafting code with care since 2024 · Fox Chapel Area School District
+                </p>
+              </motion.div>
+            </motion.div>
+          </div>
+        </section>
+
+      </div>
+    </>
   );
 }
