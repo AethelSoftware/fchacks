@@ -465,7 +465,7 @@ export default function Home() {
               style={{ marginTop: "2.5rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.6rem", color: "var(--muted)", fontSize: "0.82rem", letterSpacing: "0.1em", textTransform: "uppercase" }}
             >
               <Calendar size={13} color="var(--gold)" />
-              <span>March 7, 2026 · 10 AM – 5 PM EST</span>
+              <span>March 7, 2026 · 9 AM – 6 PM EST</span>
             </motion.div>
           </motion.div>
 
