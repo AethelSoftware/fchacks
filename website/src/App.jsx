@@ -768,7 +768,7 @@ export default function Home() {
                   $100
                 </div>
                 <div style={{ marginTop: "1rem", fontFamily: "'Outfit',sans-serif", fontSize: "0.82rem", color: "var(--muted)", lineHeight: 1.6 }}>
-                  Cash prize for the<br />runner-up team
+                  Aypeng1
                 </div>
                 {/* Podium bar */}
                 <div style={{ marginTop: "2rem", marginLeft: -32, marginRight: -32, marginBottom: -40, height: 24, background: "rgba(180,190,200,0.08)", borderTop: "1px solid rgba(180,190,200,0.15)" }} />
@@ -821,7 +821,7 @@ export default function Home() {
                   Grand Prize
                 </div>
                 <div style={{ marginTop: "1.25rem", fontFamily: "'Outfit',sans-serif", fontSize: "0.9rem", color: "rgba(240,230,211,0.6)", lineHeight: 1.6 }}>
-                  Cash prize for the<br />winning team
+                  Binary Bandits
                 </div>
 
                 {/* Crown decoration */}
@@ -863,7 +863,7 @@ export default function Home() {
                   $50
                 </div>
                 <div style={{ marginTop: "1rem", fontFamily: "'Outfit',sans-serif", fontSize: "0.82rem", color: "var(--muted)", lineHeight: 1.6 }}>
-                  Cash prize for the<br />third-place team
+                  Programming Pandas
                 </div>
                 <div style={{ marginTop: "2rem", marginLeft: -32, marginRight: -32, marginBottom: -40, height: 16, background: "rgba(180,120,60,0.06)", borderTop: "1px solid rgba(180,120,60,0.12)" }} />
               </motion.div>
