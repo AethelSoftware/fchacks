@@ -1,1034 +1,707 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+/* ════════════════════════════════════════════════════════════════════════════
+   HACKATHON ORGANIZATION — Landing page (single file)
+
+   Install:
+     npm i three @react-three/fiber @react-three/drei framer-motion lucide-react lenis
+     (React 18 projects: @react-three/fiber@8 @react-three/drei@9)
+
+   Models:
+     .glb files live in /public and are listed in HERO_MODELS.
+     Missing / broken models are skipped silently, so one bad file won't break the page.
+════════════════════════════════════════════════════════════════════════════ */
+
+import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Calendar, Users, Trophy, Zap, Coffee, Heart,
-  ChevronRight, Leaf, Award, Menu, X, Sun, Moon,
-} from "lucide-react";
+  motion, AnimatePresence, MotionConfig,
+  useScroll, useTransform, useReducedMotion, useInView,
+} from "framer-motion";
+import { Canvas, useFrame } from "@react-three/fiber";
+import { useGLTF, Environment, Lightformer } from "@react-three/drei";
+import * as THREE from "three";
+import Lenis from "lenis";
+import { ArrowDown, ArrowUpRight, Check } from "lucide-react";
 
 /* ─────────────────────────────────────────
-   FONT + GLOBAL STYLES
+   CONFIG — edit these
 ───────────────────────────────────────── */
-const GlobalStyles = () => (
-  <style>{`
-    @import url('https://fonts.googleapis.com/css2?family=Cormorant:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Outfit:wght@300;400;500;600;700&display=swap');
+const ORG_NAME   = "FC Hackathon";
+const EVENT_NAME = "Hackathon";
+const EVENT_YEAR = "2027";
 
-    :root {
-      --gold:        #C4913A;
-      --gold-light:  #E8C97A;
-      --gold-dim:    rgba(196,145,58,0.15);
-      --gold-border: rgba(196,145,58,0.22);
-      --bg:          #060604;
-      --surface:     #0D0C0A;
-      --card:        #131210;
-      --text:        #F0E6D3;
-      --muted:       #7A6E5F;
-      --faint:       #2E2A24;
-    }
+const GOOGLE_FORM_URL = "https://forms.gle/your-form-id"; // ← paste your Google Form link
 
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    html { scroll-behavior: smooth; }
+// Where sign-ups get POSTed as JSON (e.g. a Formspree / Basin / your own API route).
+// While empty, submissions are only simulated — nothing is saved.
+const FORM_ENDPOINT = "";
 
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: 'Outfit', sans-serif;
-      -webkit-font-smoothing: antialiased;
-    }
+const ABOUT_IMAGE =
+  "https://images.unsplash.com/photo-1555066931-4365d14bab8c?fm=jpg&q=60&w=1600&ixlib=rb-4.1.0";
 
-    ::selection { background: rgba(196,145,58,0.25); color: var(--gold-light); }
+// Smooth-scroll feel. Lower = floatier (0.05–0.12 is the useful range).
+const SCROLL_LERP = 0.08;
 
-    ::-webkit-scrollbar { width: 4px; }
-    ::-webkit-scrollbar-track { background: var(--bg); }
-    ::-webkit-scrollbar-thumb { background: var(--gold); border-radius: 2px; }
-
-    .font-display { font-family: 'Cormorant', serif; }
-    .font-mono    { font-family: 'DM Mono', monospace; }
-
-    /* Grain overlay */
-    .grain::before {
-      content: '';
-      position: fixed;
-      inset: -200%;
-      width: 400%;
-      height: 400%;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E");
-      opacity: 0.035;
-      pointer-events: none;
-      z-index: 9999;
-      animation: grain 0.8s steps(2) infinite;
-    }
-    @keyframes grain {
-      0%,100% { transform: translate(0,0); }
-      10%     { transform: translate(-2%,-3%); }
-      20%     { transform: translate(3%,2%); }
-      30%     { transform: translate(-1%,4%); }
-      40%     { transform: translate(2%,-1%); }
-      50%     { transform: translate(-3%,1%); }
-      60%     { transform: translate(1%,3%); }
-      70%     { transform: translate(3%,-2%); }
-      80%     { transform: translate(-2%,2%); }
-      90%     { transform: translate(1%,-3%); }
-    }
-
-    /* Gold shimmer */
-    @keyframes shimmer {
-      0%   { background-position: -200% center; }
-      100% { background-position:  200% center; }
-    }
-    .shimmer-text {
-      background: linear-gradient(90deg, var(--gold) 0%, var(--gold-light) 30%, #FFF6DC 50%, var(--gold-light) 70%, var(--gold) 100%);
-      background-size: 200% auto;
-      -webkit-background-clip: text;
-      background-clip: text;
-      -webkit-text-fill-color: transparent;
-      animation: shimmer 4s linear infinite;
-    }
-
-    /* Subtle grid lines */
-    .grid-bg {
-      background-image:
-        linear-gradient(rgba(196,145,58,0.04) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(196,145,58,0.04) 1px, transparent 1px);
-      background-size: 60px 60px;
-    }
-
-    /* Prize cards */
-    .prize-gold   { box-shadow: 0 0 60px rgba(196,145,58,0.18), 0 0 120px rgba(196,145,58,0.08); }
-    .prize-silver { box-shadow: 0 0 40px rgba(180,190,200,0.10); }
-    .prize-bronze { box-shadow: 0 0 40px rgba(180,120,60,0.10); }
-
-    /* Nav line */
-    .nav-line::after {
-      content: '';
-      display: block;
-      position: absolute;
-      bottom: -1px;
-      left: 0;
-      width: 100%;
-      height: 1px;
-      background: linear-gradient(90deg, transparent, var(--gold), transparent);
-      opacity: 0.4;
-    }
-
-    /* Section number */
-    .section-num {
-      font-family: 'Cormorant', serif;
-      font-size: clamp(6rem, 14vw, 12rem);
-      font-weight: 300;
-      line-height: 0.85;
-      letter-spacing: -0.04em;
-      color: transparent;
-      -webkit-text-stroke: 1px rgba(196,145,58,0.12);
-      pointer-events: none;
-      user-select: none;
-    }
-
-    /* Detail row */
-    .detail-row {
-      display: flex;
-      align-items: flex-start;
-      gap: 1.25rem;
-      padding: 1.25rem 1.5rem;
-      border-radius: 0.75rem;
-      background: rgba(196,145,58,0.04);
-      border: 1px solid var(--gold-border);
-      transition: border-color 0.3s, background 0.3s;
-    }
-    .detail-row:hover {
-      background: rgba(196,145,58,0.07);
-      border-color: rgba(196,145,58,0.35);
-    }
-
-    /* Button shine */
-    .btn-primary {
-      position: relative;
-      overflow: hidden;
-      background: linear-gradient(135deg, #B8832E 0%, #C4913A 40%, #D4A44E 100%);
-      border: 1px solid rgba(255,255,255,0.12);
-      box-shadow: 0 4px 24px rgba(196,145,58,0.35), inset 0 1px 0 rgba(255,255,255,0.15);
-      color: #0D0C0A;
-      font-weight: 600;
-      letter-spacing: 0.02em;
-      transition: box-shadow 0.3s, transform 0.2s;
-    }
-    .btn-primary::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(135deg, transparent 0%, rgba(255,255,255,0.12) 50%, transparent 100%);
-      transform: translateX(-100%);
-      transition: transform 0.5s ease;
-    }
-    .btn-primary:hover::after { transform: translateX(100%); }
-    .btn-primary:hover {
-      box-shadow: 0 8px 40px rgba(196,145,58,0.5), inset 0 1px 0 rgba(255,255,255,0.2);
-    }
-
-    .btn-outline {
-      border: 1px solid var(--gold-border);
-      color: var(--text);
-      transition: background 0.3s, border-color 0.3s;
-    }
-    .btn-outline:hover {
-      background: var(--gold-dim);
-      border-color: rgba(196,145,58,0.4);
-    }
-  `}</style>
-);
+/*
+  Hero models
+  - layer:    "back" = behind the title, "front" = in front of it
+  - x, y:     screen position as a fraction (-0.5 = left/bottom edge, 0.5 = right/top edge)
+  - size:     fraction of the screen's shorter side (models are auto-normalized, so any export scale works)
+  - z:        depth inside its layer (negative = further away)
+  - rotation: fixed orientation in radians [x, y, z] — models never spin
+  - bob:      up/down float amplitude (fraction of screen height)
+  - bobSpeed: float speed
+  - mobile:   optional overrides for portrait screens
+*/
+const HERO_MODELS = [
+  {
+    url: "/macbook.glb", layer: "back",
+    x: -0.30, y: 0.20, z: -2, size: 0.55,
+    rotation: [0.2, 0.6, 0], bob: 0.015, bobSpeed: 0.6, phase: 0,
+    mobile: { x: -0.22, y: 0.17, size: 0.62 },
+  },
+  {
+    url: "/motherboard.glb", layer: "front",
+    x: 0.28, y: -0.22, z: 1, size: 0.42,
+    // Stood up 90° so the board faces the viewer (use -Math.PI / 2 if it ends up facing away)
+    rotation: [Math.PI / 2, 0, 0], bob: 0.012, bobSpeed: 0.5, phase: 1.7,
+    mobile: { x: 0.22, y: -0.15, size: 0.5 },
+  },
+  {
+    url: "/github.glb", layer: "back",
+    x: 0.33, y: 0.27, z: -3, size: 0.42,
+    rotation: [0.3, 0.2, -0.2], bob: 0.018, bobSpeed: 0.7, phase: 3.1,
+    mobile: { x: 0.26, y: 0.24, size: 0.48 },
+  },
+];
 
 /* ─────────────────────────────────────────
    CONSTANTS
 ───────────────────────────────────────── */
-const NAV_LINKS = [
-  { id: "about",     label: "About"     },
-  { id: "hackathon", label: "Hackathon" },
-  { id: "prizes",    label: "Prizes"    },
-  { id: "donate",    label: "Support"   },
-  { id: "join",      label: "Join"      },
-];
+const OLIVE = "#B6BC86";
+const EASE  = [0.22, 1, 0.36, 1];
+const CAM_Z = 10;
+const FOV   = 35;
 
-const stagger = {
-  hidden: {},
-  show:   { transition: { staggerChildren: 0.1 } },
-};
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 22 },
-  show:   { opacity: 1, y: 0, transition: { duration: 0.7, ease: [0.22,1,0.36,1] } },
-};
-
-const fadeLeft = {
-  hidden: { opacity: 0, x: -30 },
-  show:   { opacity: 1, x: 0,  transition: { duration: 0.8, ease: [0.22,1,0.36,1] } },
-};
-
-const fadeRight = {
-  hidden: { opacity: 0, x: 30 },
-  show:   { opacity: 1, x: 0, transition: { duration: 0.8, ease: [0.22,1,0.36,1] } },
-};
+const EXPERIENCE = ["Just starting", "Vibe coder", "Hobbyist", "Professional"];
+const TEAM       = ["Solo", "Have a team", "Looking for one"];
 
 /* ─────────────────────────────────────────
-   THIN GOLD DIVIDER
+   GLOBAL STYLES
 ───────────────────────────────────────── */
-const GoldLine = ({ className = "" }) => (
-  <div className={`w-full h-px ${className}`}
-       style={{ background: "linear-gradient(90deg,transparent,var(--gold),transparent)", opacity: 0.25 }} />
-);
+const GLOBAL_CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Anton&family=Inter+Tight:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
 
-/* ─────────────────────────────────────────
-   MAIN COMPONENT
-───────────────────────────────────────── */
-export default function Home() {
-  const [theme, setTheme]       = useState("dark");
-  const [isDark, setIsDark]     = useState(true);
-  const [mobileOpen, setMobileOpen] = useState(false);
+:root {
+  --bg:      #000000;
+  --fg:      #F5F4EF;
+  --muted:   rgba(245,244,239,0.58);
+  --faint:   rgba(245,244,239,0.32);
+  --line:    rgba(245,244,239,0.12);
+  --olive:   ${OLIVE};
+  --display: 'Anton', Impact, 'Arial Narrow', sans-serif;
+  --sans:    'Inter Tight', system-ui, sans-serif;
+  --mono:    'JetBrains Mono', ui-monospace, monospace;
+  --ease:    cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { background: var(--bg); }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+::selection { background: var(--olive); color: #000; }
+a { color: inherit; text-decoration: none; }
+button, input, textarea { font: inherit; color: inherit; }
+
+/* Lenis */
+html.lenis, html.lenis body { height: auto; }
+.lenis.lenis-smooth { scroll-behavior: auto !important; }
+.lenis.lenis-smooth [data-lenis-prevent] { overscroll-behavior: contain; }
+.lenis.lenis-stopped { overflow: hidden; }
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: #222; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--olive); }
+
+.ho-root { position: relative; z-index: 1; }
+
+/* Type */
+.wrap    { max-width: 1280px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 48px); }
+.display { font-family: var(--display); font-weight: 400; text-transform: uppercase; letter-spacing: -0.01em; line-height: 0.9; }
+.label   { font-family: var(--mono); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--olive); }
+.meta    { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); }
+.olive   { color: var(--olive); }
+
+/* Nav */
+.nav { position: fixed; inset: 0 0 auto; z-index: 50; border-bottom: 1px solid transparent; transition: background .4s var(--ease), border-color .4s var(--ease); }
+.nav.scrolled { background: rgba(0,0,0,0.72); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-color: var(--line); }
+.nav-inner { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+.nav-brand { font-family: var(--display); text-transform: uppercase; font-size: 18px; letter-spacing: 0.01em; }
+.nav-links { display: flex; align-items: center; gap: 28px; }
+.nav-link  { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); transition: color .25s; }
+.nav-link:hover { color: var(--fg); }
+
+/* Buttons */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  height: 40px; padding: 0 18px; border-radius: 999px; cursor: pointer;
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+  border: 1px solid var(--fg);
+  transition: background .3s var(--ease), color .3s var(--ease), border-color .3s var(--ease), opacity .3s;
+}
+.btn-solid { background: var(--fg); color: #000; }
+.btn-solid:hover { background: var(--olive); border-color: var(--olive); }
+.btn-ghost { background: transparent; color: var(--fg); border-color: var(--line); }
+.btn-ghost:hover { border-color: var(--olive); color: var(--olive); }
+.btn-lg { height: 52px; padding: 0 26px; font-size: 12px; }
+.btn:disabled { opacity: 0.5; cursor: wait; }
+
+/* Hero */
+.hero { position: relative; height: 100svh; min-height: 640px; overflow: hidden; }
+.layer { position: absolute; inset: 0; pointer-events: none; }
+.layer-back  { z-index: 1; }
+.layer-text  { z-index: 2; display: grid; place-items: center; padding: 0 16px; }
+.layer-front { z-index: 3; }
+.hero-title { font-size: clamp(3rem, 13.5vw, 13.5rem); text-align: center; }
+.mask { display: block; overflow: hidden; padding-top: 0.06em; }
+.mask > span { display: block; }
+.hero-sub { margin-top: clamp(20px, 3vw, 36px); text-align: center; font-size: clamp(15px, 1.6vw, 19px); font-weight: 300; color: var(--muted); }
+.hero-sub em { font-style: normal; color: var(--olive); }
+.hero-cta { margin-top: 28px; display: flex; justify-content: center; pointer-events: auto; }
+.hero-foot { position: absolute; z-index: 4; left: 0; right: 0; bottom: 28px; display: flex; justify-content: space-between; align-items: center; }
+.scroll-cue { display: inline-flex; align-items: center; gap: 8px; transition: color .25s; }
+.scroll-cue:hover { color: var(--fg); }
+
+/* Sections */
+.section { position: relative; padding: clamp(110px, 15vw, 200px) 0; }
+.section-head { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 20px; border-bottom: 1px solid var(--line); margin-bottom: clamp(56px, 8vw, 110px); }
+.display-md { font-size: clamp(2.75rem, 6.5vw, 6rem); }
+.body { font-size: clamp(16px, 1.25vw, 18px); line-height: 1.7; font-weight: 300; color: var(--muted); max-width: 52ch; }
+.body + .body { margin-top: 1.1em; }
+.body strong { color: var(--fg); font-weight: 500; }
+
+/* About */
+.about-grid { display: grid; grid-template-columns: 1.05fr 1fr; gap: clamp(40px, 7vw, 112px); align-items: center; }
+.about-copy .body:first-of-type { margin-top: 32px; }
+.about-media { position: relative; aspect-ratio: 4 / 5; overflow: hidden; border-radius: 4px; background: #0a0a0a; }
+.about-media img {
+  position: absolute; left: 0; top: -20%; width: 100%; height: 140%; object-fit: cover; display: block;
+  filter: grayscale(1) contrast(1.06) brightness(0.8);
+  transition: filter 0.9s var(--ease);
+}
+.about-media:hover img { filter: grayscale(0.15) contrast(1.02) brightness(0.9); }
+.about-media::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.6), transparent 45%); pointer-events: none; }
+.about-media figcaption { position: absolute; left: 20px; right: 20px; bottom: 18px; z-index: 1; display: flex; justify-content: space-between; }
+
+.principles { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: clamp(96px, 12vw, 170px); border-top: 1px solid var(--line); }
+.principle { padding: 28px 32px 0 0; }
+.principle + .principle { padding-left: 32px; border-left: 1px solid var(--line); }
+.principle h3 { font-size: clamp(1.6rem, 2.4vw, 2.1rem); margin: 14px 0 12px; }
+.principle p { font-size: 15px; line-height: 1.65; font-weight: 300; color: var(--muted); max-width: 34ch; }
+
+/* Sign up */
+.signup-grid { display: grid; grid-template-columns: 1fr 1.1fr; gap: clamp(40px, 7vw, 112px); align-items: start; }
+.facts { margin-top: 40px; border-top: 1px solid var(--line); }
+.fact { display: grid; grid-template-columns: 96px 1fr; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--line); font-size: 15px; }
+.fact dt { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); padding-top: 3px; }
+.fact dd { color: var(--fg); font-weight: 400; }
+
+.form { display: grid; gap: 32px; }
+.row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+.field { display: grid; gap: 10px; }
+.field > label, .field-label { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+.field .opt { color: var(--faint); text-transform: none; letter-spacing: 0.02em; }
+.input {
+  width: 100%; background: transparent; border: none; border-bottom: 1px solid var(--line); border-radius: 0;
+  padding: 10px 0 12px; font-size: 18px; font-weight: 300; outline: none;
+  transition: border-color .3s var(--ease);
+}
+.input:focus { border-color: var(--olive); }
+.input::placeholder { color: rgba(245,244,239,0.22); }
+textarea.input { resize: vertical; min-height: 96px; line-height: 1.5; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  height: 36px; padding: 0 15px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--line); background: transparent; color: var(--muted); font-size: 14px;
+  transition: background .25s, color .25s, border-color .25s;
+}
+.chip:hover { border-color: var(--faint); color: var(--fg); }
+.chip[aria-pressed="true"] { background: var(--fg); color: #000; border-color: var(--fg); }
+
+.form-foot { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding-top: 8px; }
+.fine  { font-size: 12px; color: var(--faint); }
+.error { font-size: 13px; color: #D9907C; }
+
+.success { border: 1px solid var(--line); border-radius: 4px; padding: clamp(32px, 5vw, 56px); background: rgba(0,0,0,0.6); }
+.success-icon { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: var(--olive); color: #000; margin-bottom: 28px; }
+.success h3 { font-size: clamp(2.2rem, 4vw, 3.4rem); margin-bottom: 16px; }
+
+/* Footer */
+.footer { border-top: 1px solid var(--line); padding: 32px 0 40px; }
+.foot-inner { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+
+/* Responsive */
+@media (max-width: 900px) {
+  .about-grid, .signup-grid { grid-template-columns: 1fr; }
+  .principles { grid-template-columns: 1fr; }
+  .principle, .principle + .principle { padding: 28px 0; border-left: none; }
+  .principle + .principle { border-top: 1px solid var(--line); }
+  .row-2 { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) {
+  .nav-link { display: none; }
+  .hero-foot .meta:first-child { display: none; }
+  .hero-foot { justify-content: center; }
+}
+`;
+
+/* ════════════════════════════════════════════════════════════════════════════
+   SMOOTH SCROLL (Lenis)
+════════════════════════════════════════════════════════════════════════════ */
+function useLenis(disabled) {
+  useEffect(() => {
+    if (disabled) return;
+
+    const lenis = new Lenis({ lerp: SCROLL_LERP, smoothWheel: true });
+
+    let rafId;
+    const raf = (time) => {
+      lenis.raf(time);
+      rafId = requestAnimationFrame(raf);
+    };
+    rafId = requestAnimationFrame(raf);
+
+    // Route in-page anchor links (#about, #signup, #top) through Lenis
+    const onClick = (e) => {
+      const link = e.target.closest?.('a[href^="#"]');
+      if (!link) return;
+      const hash = link.getAttribute("href");
+      if (hash === "#top" || hash === "#") {
+        e.preventDefault();
+        lenis.scrollTo(0);
+        return;
+      }
+      const target = document.querySelector(hash);
+      if (!target) return;
+      e.preventDefault();
+      lenis.scrollTo(target, { offset: -64 });
+    };
+    document.addEventListener("click", onClick);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      document.removeEventListener("click", onClick);
+      lenis.destroy();
+    };
+  }, [disabled]);
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   3D
+════════════════════════════════════════════════════════════════════════════ */
+
+// Catches missing/broken .glb files so one bad model doesn't take the page down
+class ModelBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { failed: false };
+  }
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  componentDidCatch(error) {
+    console.warn(`[3D] Couldn't load "${this.props.url}" — skipping it.`, error);
+  }
+  render() {
+    return this.state.failed ? null : this.props.children;
+  }
+}
+
+// Loads a GLB, centers it and scales it so its largest dimension = 1 unit
+function NormalizedModel({ url }) {
+  const { scene } = useGLTF(url);
+  const object = useMemo(() => {
+    const clone = scene.clone(true);
+    clone.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(clone);
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z) || 1;
+    clone.position.sub(center);
+    const fit = new THREE.Group();
+    fit.add(clone);
+    fit.scale.setScalar(1 / maxDim);
+    return fit;
+  }, [scene]);
+  return <primitive object={object} />;
+}
+
+// Transparent canvas with a shared camera setup (so layers line up)
+function Stage({ children, active = true }) {
+  return (
+    <Canvas
+      frameloop={active ? "always" : "never"}
+      dpr={[1, 1.75]}
+      camera={{ position: [0, 0, CAM_Z], fov: FOV }}
+      gl={{ alpha: true, antialias: true, powerPreference: "high-performance" }}
+      style={{ position: "absolute", inset: 0, pointerEvents: "none" }}
+    >
+      {children}
+    </Canvas>
+  );
+}
+
+// Neutral studio light + a soft olive rim. No network HDRs.
+function SceneLights() {
+  return (
+    <>
+      <ambientLight intensity={0.35} />
+      <directionalLight position={[5, 6, 5]} intensity={1.6} />
+      <directionalLight position={[-6, -2, -4]} intensity={1.1} color={OLIVE} />
+      <Environment resolution={256}>
+        <Lightformer form="rect" intensity={2.2} position={[0, 4, 5]} scale={[8, 3, 1]} />
+        <Lightformer form="rect" intensity={1.2} color={OLIVE} position={[-6, 0, -2]} scale={[6, 6, 1]} />
+        <Lightformer form="ring" intensity={1.5} position={[5, 2, 3]} scale={2} />
+      </Environment>
+    </>
+  );
+}
+
+/* ── Hero models: fixed orientation, gentle bob only ── */
+function HeroModel({ cfg, reduced }) {
+  const group = useRef(null);
+
+  useFrame(({ viewport, clock }) => {
+    const g = group.current;
+    if (!g) return;
+
+    const m = viewport.aspect < 0.8 && cfg.mobile ? cfg.mobile : null;
+    const x = m?.x ?? cfg.x;
+    const y = m?.y ?? cfg.y;
+    const size = m?.size ?? cfg.size;
+
+    // Screen-space placement, corrected for depth
+    const depth = (CAM_Z - cfg.z) / CAM_Z;
+    const w = viewport.width * depth;
+    const h = viewport.height * depth;
+    const short = Math.min(viewport.width, viewport.height) * depth;
+
+    const bob = reduced ? 0 : Math.sin(clock.elapsedTime * cfg.bobSpeed + cfg.phase) * cfg.bob * h;
+    g.position.set(x * w, y * h + bob, cfg.z);
+    g.scale.setScalar(size * short);
+  });
+
+  return (
+    <group ref={group} rotation={cfg.rotation}>
+      <NormalizedModel url={cfg.url} />
+    </group>
+  );
+}
+
+function HeroScene({ layer, reduced }) {
+  return (
+    <>
+      <SceneLights />
+      {HERO_MODELS.filter((m) => m.layer === layer).map((cfg) => (
+        <ModelBoundary key={cfg.url} url={cfg.url}>
+          <Suspense fallback={null}>
+            <HeroModel cfg={cfg} reduced={reduced} />
+          </Suspense>
+        </ModelBoundary>
+      ))}
+    </>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   UI HELPERS
+════════════════════════════════════════════════════════════════════════════ */
+
+// Shifts children while they cross the viewport. speed > 0 = faster than the page, < 0 = slower.
+function Parallax({ children, speed = 80, className }) {
+  const ref = useRef(null);
+  const reduced = useReducedMotion();
+  const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
+  const y = useTransform(scrollYProgress, [0, 1], reduced ? [0, 0] : [speed, -speed]);
+  return (
+    <div ref={ref} className={className}>
+      <motion.div style={{ y }}>{children}</motion.div>
+    </div>
+  );
+}
+
+function Reveal({ children, delay = 0, className }) {
+  return (
+    <motion.div
+      className={className}
+      initial={{ opacity: 0, y: 24 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-80px" }}
+      transition={{ duration: 0.9, delay, ease: EASE }}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   SECTIONS
+════════════════════════════════════════════════════════════════════════════ */
+
+function Nav() {
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-    if (typeof document !== "undefined")
-      document.documentElement.classList.add("dark");
+    const onScroll = () => setScrolled(window.scrollY > 30);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
   }, []);
-
-  useEffect(() => {
-    const handler = () => setScrolled(window.scrollY > 30);
-    window.addEventListener("scroll", handler, { passive: true });
-    return () => window.removeEventListener("scroll", handler);
-  }, []);
-
-  const toggleTheme = () => {
-    const next = theme === "dark" ? "light" : "dark";
-    setTheme(next);
-    setIsDark(next === "dark");
-    document.documentElement.classList.toggle("dark", next === "dark");
-  };
-
-  const scrollTo = (id) => {
-    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
-    setMobileOpen(false);
-  };
 
   return (
-    <>
-      <GlobalStyles />
-      <div className="grain" style={{ position: "relative", minHeight: "100vh" }}>
-
-        {/* ══════════════════════════════════════
-            HEADER
-        ══════════════════════════════════════ */}
-        <header
-          className="nav-line"
-          style={{
-            position: "fixed",
-            inset: "0 0 auto",
-            zIndex: 100,
-            transition: "background 0.4s, border-color 0.4s",
-            background: scrolled ? "rgba(6,6,4,0.92)" : "rgba(6,6,4,0.55)",
-            backdropFilter: "blur(20px)",
-            borderBottom: `1px solid ${scrolled ? "rgba(196,145,58,0.15)" : "transparent"}`,
-          }}
-        >
-          <div style={{ maxWidth: 1200, margin: "0 auto", padding: "1.1rem 2rem", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            {/* Logo */}
-            <motion.a
-              href="#"
-              initial={{ opacity: 0, x: -16 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.7, ease: [0.22,1,0.36,1] }}
-              style={{ display: "flex", alignItems: "center", gap: "0.75rem", textDecoration: "none" }}
-            >
-              <div style={{
-                width: 38, height: 38, borderRadius: 10,
-                background: "linear-gradient(135deg,#1A1710,#0D0C0A)",
-                border: "1px solid rgba(196,145,58,0.35)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                boxShadow: "0 0 20px rgba(196,145,58,0.12)",
-              }}>
-                <Leaf size={18} color="var(--gold)" />
-              </div>
-              <span className="font-display" style={{ fontSize: "1.35rem", fontWeight: 600, letterSpacing: "-0.01em", color: "var(--text)" }}>
-                FC<span style={{ color: "var(--gold)" }}> Hacks</span>
-              </span>
-            </motion.a>
-
-            {/* Desktop Nav */}
-            <nav style={{ display: "flex", alignItems: "center", gap: "2.5rem" }}>
-              {NAV_LINKS.map((link, i) => (
-                <motion.button
-                  key={link.id}
-                  onClick={() => scrollTo(link.id)}
-                  initial={{ opacity: 0, y: -8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: i * 0.07, ease: [0.22,1,0.36,1] }}
-                  style={{
-                    background: "none", border: "none", cursor: "pointer",
-                    fontFamily: "'Outfit', sans-serif", fontSize: "0.875rem",
-                    fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase",
-                    color: "var(--muted)", transition: "color 0.25s",
-                    display: "none",
-                  }}
-                  className="desktop-nav-item"
-                  onMouseEnter={e => e.currentTarget.style.color = "var(--gold-light)"}
-                  onMouseLeave={e => e.currentTarget.style.color = "var(--muted)"}
-                >
-                  {link.label}
-                </motion.button>
-              ))}
-            </nav>
-
-            {/* Desktop: CTA + theme */}
-            <motion.div
-              initial={{ opacity: 0, x: 16 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.7, ease: [0.22,1,0.36,1] }}
-              style={{ display: "flex", alignItems: "center", gap: "1rem" }}
-            >
-              <a
-                href="https://forms.gle/5Q1ussbR1znusNUy8"
-                target="_blank" rel="noopener noreferrer"
-                className="btn-primary"
-                style={{ padding: "0.55rem 1.25rem", borderRadius: 8, fontSize: "0.8rem", fontWeight: 600, textDecoration: "none", letterSpacing: "0.05em", textTransform: "uppercase" }}
-              >
-                Register
-              </a>
-              <button
-                onClick={() => setMobileOpen(s => !s)}
-                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", display: "block" }}
-              >
-                {mobileOpen ? <X size={20} /> : <Menu size={20} />}
-              </button>
-            </motion.div>
-          </div>
-
-          {/* Mobile Drawer */}
-          <AnimatePresence>
-            {mobileOpen && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                style={{
-                  background: "rgba(13,12,10,0.98)",
-                  borderTop: "1px solid var(--gold-border)",
-                  padding: "1.5rem 2rem 2rem",
-                }}
-              >
-                {NAV_LINKS.map(l => (
-                  <button
-                    key={l.id}
-                    onClick={() => scrollTo(l.id)}
-                    style={{
-                      display: "block", width: "100%", textAlign: "left",
-                      background: "none", border: "none", cursor: "pointer",
-                      fontFamily: "'Outfit', sans-serif", fontSize: "1rem",
-                      fontWeight: 500, letterSpacing: "0.06em", textTransform: "uppercase",
-                      color: "var(--muted)", padding: "0.85rem 0",
-                      borderBottom: "1px solid var(--faint)",
-                    }}
-                  >
-                    {l.label}
-                  </button>
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </header>
-
-        {/* ══════════════════════════════════════
-            HERO
-        ══════════════════════════════════════ */}
-        <section style={{ position: "relative", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-          {/* Video BG */}
-          <video
-            autoPlay loop muted playsInline
-            src="/codingcinematicvid.mp4"
-            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
-            aria-hidden="true"
-          />
-          {/* Multi-layer overlay */}
-          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,4,0.65) 0%, rgba(6,6,4,0.5) 50%, rgba(6,6,4,0.85) 100%)" }} />
-          <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at center, transparent 30%, rgba(6,6,4,0.5) 100%)" }} />
-
-          {/* Content */}
-          <motion.div
-            variants={stagger}
-            initial="hidden"
-            animate="show"
-            style={{
-              position: "relative", zIndex: 10, textAlign: "center",
-              maxWidth: 860, padding: "3.5rem 3rem 3rem", paddingTop: "calc(3.5rem + 0px)",
-              marginTop: 80,
-              borderRadius: 28,
-              background: "rgba(6,6,4,0.45)",
-              backdropFilter: "blur(28px) saturate(1.4)",
-              WebkitBackdropFilter: "blur(28px) saturate(1.4)",
-              border: "1px solid rgba(196,145,58,0.12)",
-              boxShadow: "0 8px 80px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.04)",
-            }}
-          >
-            {/* Badge */}
-            <motion.div variants={fadeUp} style={{ display: "inline-flex", alignItems: "center", gap: "0.6rem", padding: "0.45rem 1.1rem", borderRadius: 999, border: "1px solid var(--gold-border)", background: "rgba(196,145,58,0.07)", marginBottom: "2rem" }}>
-              <div style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--gold)", boxShadow: "0 0 8px var(--gold)", animation: "pulse 2s ease-in-out infinite" }} />
-              <span className="font-mono" style={{ fontSize: "0.72rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--gold-light)" }}>
-                High School Coding Club · Fox Chapel Area
-              </span>
-            </motion.div>
-
-            {/* Main Headline */}
-            <motion.h1
-              variants={fadeUp}
-              className="font-display"
-              style={{ fontSize: "clamp(3.5rem, 11vw, 9rem)", fontWeight: 300, lineHeight: 0.9, letterSpacing: "-0.03em", marginBottom: "2rem" }}
-            >
-              <span style={{ display: "block", color: "var(--text)" }}>Build. <span style={{ color: "var(--text)", opacity: 0.75 }}>Create.</span></span>
-              <span className="shimmer-text" style={{ display: "block" }}>Ship.</span>
-            </motion.h1>
-
-            {/* Sub */}
-            <motion.p
-              variants={fadeUp}
-              style={{ fontSize: "clamp(1rem,2.5vw,1.2rem)", fontWeight: 300, color: "rgba(240,230,211,0.7)", maxWidth: 540, margin: "0 auto 0.75rem", lineHeight: 1.65 }}
-            >
-              A small, craft-minded club from Fox Chapel that treats code like a trade.
-            </motion.p>
-            <motion.p
-              variants={fadeUp}
-              style={{ fontSize: "clamp(0.95rem,2.2vw,1.1rem)", fontWeight: 400, color: "var(--gold-light)", marginBottom: "2.5rem" }}
-            >
-              <span style={{ fontWeight: 600 }}>Special Event —</span> We're hosting our first online hackathon.
-            </motion.p>
-
-            {/* CTAs */}
-            <motion.div variants={fadeUp} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "1rem", flexWrap: "wrap" }}>
-              <a
-                href="https://docs.google.com/forms/d/e/1FAIpQLSdJ8qUgqsHDBEELzE5xT6zU8-g2xYbQiiUIYlD3JOQfC30e4w/viewform?usp=dialog"
-                className="btn-primary"
-                style={{ display: "inline-flex", alignItems: "center", gap: "0.6rem", padding: "0.9rem 2rem", borderRadius: 12, fontSize: "0.92rem", letterSpacing: "0.04em", textDecoration: "none", fontFamily: "'Outfit', sans-serif" }}
-              >
-                Become a Member
-                <ChevronRight size={16} />
-              </a>
-              <button
-                onClick={() => scrollTo("hackathon")}
-                className="btn-outline"
-                style={{ display: "inline-flex", alignItems: "center", gap: "0.6rem", padding: "0.9rem 2rem", borderRadius: 12, fontSize: "0.92rem", letterSpacing: "0.04em", background: "none", cursor: "pointer", fontFamily: "'Outfit', sans-serif" }}
-              >
-                Learn More
-              </button>
-            </motion.div>
-
-            {/* Date */}
-            <motion.div
-              variants={fadeUp}
-              style={{ marginTop: "2.5rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.6rem", color: "var(--muted)", fontSize: "0.82rem", letterSpacing: "0.1em", textTransform: "uppercase" }}
-            >
-              <Calendar size={13} color="var(--gold)" />
-              <span>March 7, 2026 · 9 AM – 6 PM EST</span>
-            </motion.div>
-          </motion.div>
-
-          {/* Scroll indicator */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 2, duration: 1 }}
-            style={{ position: "absolute", bottom: 36, left: "50%", transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center", gap: "0.5rem" }}
-          >
-            <span style={{ fontFamily: "'DM Mono',monospace", fontSize: "0.65rem", letterSpacing: "0.15em", textTransform: "uppercase", color: "var(--muted)" }}>Scroll</span>
-            <motion.div
-              style={{ width: 1, height: 40, background: "linear-gradient(to bottom, var(--gold), transparent)" }}
-              animate={{ scaleY: [0.3, 1, 0.3], opacity: [0.4, 1, 0.4] }}
-              transition={{ duration: 2, repeat: Infinity }}
-            />
-          </motion.div>
-        </section>
-
-        {/* ══════════════════════════════════════
-            ABOUT
-        ══════════════════════════════════════ */}
-        <section id="about" className="grid-bg" style={{ position: "relative", background: "var(--surface)", padding: "8rem 2rem" }}>
-          <GoldLine />
-          <div style={{ maxWidth: 1100, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6rem", alignItems: "center" }}>
-            {/* Left */}
-            <motion.div
-              variants={fadeLeft}
-              initial="hidden"
-              whileInView="show"
-              viewport={{ once: true, margin: "-80px" }}
-            >
-              <div className="section-num">01</div>
-              <div style={{ marginTop: "-2rem", position: "relative" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1.5rem" }}>
-                  <div style={{ width: 40, height: 1, background: "var(--gold)", opacity: 0.6 }} />
-                  <span className="font-mono" style={{ fontSize: "0.68rem", letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--gold)" }}>About the Club</span>
-                </div>
-                <h2 className="font-display" style={{ fontSize: "clamp(2.5rem,5vw,4rem)", fontWeight: 400, lineHeight: 1.05, letterSpacing: "-0.02em", color: "var(--text)", marginBottom: "2rem" }}>
-                  Our<br /><em style={{ color: "var(--gold)", fontStyle: "italic" }}>Craft</em>
-                </h2>
-                <p style={{ fontSize: "1.05rem", color: "rgba(240,230,211,0.7)", lineHeight: 1.8, marginBottom: "1.5rem" }}>
-                  <strong style={{ color: "var(--gold-light)", fontWeight: 600 }}>FC Hacks</strong> is where high school students learn to build software with intention. We believe in code that's deliberate, design that's thoughtful, and projects that stand the test of time.
-                </p>
-                <blockquote style={{ borderLeft: "2px solid rgba(196,145,58,0.35)", paddingLeft: "1.25rem", marginTop: "2rem" }}>
-                  <p className="font-display" style={{ fontSize: "1.15rem", fontStyle: "italic", color: "rgba(240,230,211,0.5)", lineHeight: 1.7 }}>
-                    We may be a small group, but our ambitions are as solid as oak. Now we're bringing that same craftsmanship to our first hackathon.
-                  </p>
-                </blockquote>
-              </div>
-            </motion.div>
-
-            {/* Right - Image */}
-            <motion.div
-              variants={fadeRight}
-              initial="hidden"
-              whileInView="show"
-              viewport={{ once: true, margin: "-80px" }}
-              style={{ position: "relative" }}
-            >
-              {/* Decorative frame */}
-              <div style={{ position: "absolute", inset: -16, border: "1px solid rgba(196,145,58,0.1)", borderRadius: 20, pointerEvents: "none", zIndex: 0 }} />
-              <div style={{ position: "relative", borderRadius: 16, overflow: "hidden", border: "1px solid rgba(196,145,58,0.2)" }}>
-                <img
-                  src="https://images.unsplash.com/photo-1555066931-4365d14bab8c?fm=jpg&q=60&w=1600&ixlib=rb-4.1.0"
-                  alt="Code workshop"
-                  style={{ width: "100%", height: 420, objectFit: "cover", display: "block", filter: "brightness(0.8) saturate(0.9)" }}
-                />
-                <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(6,6,4,0.8) 0%, transparent 60%)" }} />
-                <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "2rem" }}>
-                  <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: "1.05rem", fontWeight: 600, color: "var(--text)" }}>The Workshop</div>
-                  <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: "0.82rem", color: "var(--muted)", marginTop: "0.25rem" }}>Where ideas become handcrafted software</div>
-                </div>
-              </div>
-              {/* Floating badge */}
-              <div style={{ position: "absolute", top: -20, right: -20, background: "var(--card)", border: "1px solid var(--gold-border)", borderRadius: 12, padding: "0.75rem 1rem", boxShadow: "0 8px 32px rgba(0,0,0,0.5)", zIndex: 10 }}>
-                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: "0.65rem", letterSpacing: "0.1em", color: "var(--gold)", textTransform: "uppercase", marginBottom: 4 }}>Est.</div>
-                <div className="font-display" style={{ fontSize: "1.5rem", fontWeight: 700, color: "var(--text)", lineHeight: 1 }}>2024</div>
-              </div>
-            </motion.div>
-          </div>
-          <GoldLine style={{ marginTop: "8rem" }} />
-        </section>
-
-        {/* ══════════════════════════════════════
-            HACKATHON
-        ══════════════════════════════════════ */}
-        <section id="hackathon" style={{ background: "var(--bg)", padding: "8rem 2rem" }}>
-          <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-            {/* Header */}
-            <motion.div
-              variants={stagger}
-              initial="hidden"
-              whileInView="show"
-              viewport={{ once: true }}
-              style={{ marginBottom: "5rem" }}
-            >
-              <motion.div variants={fadeUp} style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1.25rem" }}>
-                <div style={{ width: 40, height: 1, background: "var(--gold)", opacity: 0.6 }} />
-                <span className="font-mono" style={{ fontSize: "0.68rem", letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--gold)" }}>The Event</span>
-              </motion.div>
-              <motion.h2
-                variants={fadeUp}
-                className="font-display"
-                style={{ fontSize: "clamp(2.8rem,7vw,5.5rem)", fontWeight: 300, letterSpacing: "-0.03em", lineHeight: 0.95, color: "var(--text)" }}
-              >
-                Hackathon <em className="shimmer-text ml-4" style={{ fontStyle: "italic" }}>2026</em>
-              </motion.h2>
-              <motion.p variants={fadeUp} style={{ marginTop: "1.5rem", fontSize: "1.05rem", color: "var(--muted)", maxWidth: 520 }}>
-                A 100% online hackathon for Pittsburgh-area middle and high school students of all skill levels.
-              </motion.p>
-            </motion.div>
-
-            {/* Two Columns */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3rem", alignItems: "start" }}>
-              {/* Left — Details */}
-              <motion.div
-                variants={fadeLeft}
-                initial="hidden"
-                whileInView="show"
-                viewport={{ once: true }}
-              >
-                <div style={{ background: "var(--card)", border: "1px solid var(--gold-border)", borderRadius: 20, padding: "2.5rem", marginBottom: "1.5rem" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "2rem" }}>
-                    <div style={{ padding: "0.6rem", borderRadius: 10, background: "rgba(196,145,58,0.08)", border: "1px solid var(--gold-border)" }}>
-                      <Calendar size={18} color="var(--gold)" />
-                    </div>
-                    <h4 style={{ fontFamily: "'Outfit',sans-serif", fontSize: "1.1rem", fontWeight: 600, color: "var(--text)" }}>Event Details</h4>
-                  </div>
-
-                  <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                    {[
-                      {
-                        icon: <Calendar size={18} color="var(--gold)" />,
-                        label: "Date & Time",
-                        main: "Saturday, March 7, 2026",
-                        sub: "9:00 AM – 9:00 PM EST",
-                      },
-                      {
-                        icon: <Users size={18} color="var(--gold)" />,
-                        label: "Who Can Join",
-                        main: "Pittsburgh Area Students",
-                        sub: "Middle & High School · All skill levels",
-                      },
-                      {
-                        icon: <Trophy size={18} color="var(--gold)" />,
-                        label: "Format",
-                        main: "100% Online · Team or Solo",
-                        sub: "Theme announced at kickoff",
-                      },
-                    ].map(item => (
-                      <div key={item.label} className="detail-row">
-                        <div style={{ marginTop: 2, flexShrink: 0 }}>{item.icon}</div>
-                        <div>
-                          <div style={{ fontFamily: "'DM Mono',monospace", fontSize: "0.65rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--gold)", marginBottom: "0.35rem" }}>{item.label}</div>
-                          <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: "0.95rem", fontWeight: 600, color: "var(--text)" }}>{item.main}</div>
-                          <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: "0.82rem", color: "var(--muted)", marginTop: "0.2rem" }}>{item.sub}</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Crafted by block */}
-                <div style={{ background: "linear-gradient(135deg, rgba(196,145,58,0.05), rgba(196,145,58,0.02))", border: "1px solid var(--gold-border)", borderRadius: 16, padding: "1.75rem" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.9rem" }}>
-                    <Coffee size={16} color="var(--gold)" />
-                    <span style={{ fontFamily: "'Outfit',sans-serif", fontSize: "0.95rem", fontWeight: 600, color: "var(--text)" }}>Crafted by FC Hacks</span>
-                  </div>
-                  <p style={{ fontFamily: "'Outfit',sans-serif", fontSize: "0.88rem", color: "var(--muted)", lineHeight: 1.75 }}>
-                    We're a small coding club from Fox Chapel High School. This is our first hackathon — a passion project built from the ground up. No corporate sponsors. Just students who love building things.
-                  </p>
-                </div>
-              </motion.div>
-
-              {/* Right — Register */}
-              <motion.div
-                variants={fadeRight}
-                initial="hidden"
-                whileInView="show"
-                viewport={{ once: true }}
-                style={{ background: "var(--card)", border: "1px solid var(--gold-border)", borderRadius: 20, padding: "2.5rem", position: "relative", overflow: "hidden" }}
-              >
-                {/* Decorative circle */}
-                <div style={{ position: "absolute", top: -60, right: -60, width: 200, height: 200, borderRadius: "50%", background: "radial-gradient(circle, rgba(196,145,58,0.06) 0%, transparent 70%)", pointerEvents: "none" }} />
-
-                <div style={{ textAlign: "center", marginBottom: "2rem", position: "relative", zIndex: 1 }}>
-                  <h4 className="font-display" style={{ fontSize: "2.2rem", fontWeight: 400, letterSpacing: "-0.02em", color: "var(--text)", marginBottom: "1rem" }}>
-                    Show Your Interest
-                  </h4>
-                  <p style={{ fontFamily: "'Outfit',sans-serif", fontSize: "0.9rem", color: "var(--muted)", lineHeight: 1.7, maxWidth: 320, margin: "0 auto" }}>
-                    This event runs if we hit our interest goal. Sign up and we'll reach out with all the details.
-                  </p>
-                </div>
-
-                <a
-                  href="https://forms.gle/5Q1ussbR1znusNUy8"
-                  target="_blank" rel="noopener noreferrer"
-                  className="btn-primary"
-                  style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "0.75rem", width: "100%", padding: "1.1rem", borderRadius: 14, fontSize: "1rem", textDecoration: "none", fontFamily: "'Outfit',sans-serif", marginBottom: "2rem" }}
-                >
-                  <Zap size={18} />
-                  I'm Interested
-                  <ChevronRight size={16} />
-                </a>
-
-                {/* Terminal block */}
-                <div style={{ background: "#080806", border: "1px solid var(--faint)", borderRadius: 14, padding: "1.5rem", fontFamily: "'DM Mono',monospace" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1.25rem" }}>
-                    {["#C96262","#C9A862","#62C962"].map(c => (
-                      <div key={c} style={{ width: 10, height: 10, borderRadius: "50%", background: c, opacity: 0.7 }} />
-                    ))}
-                    <span style={{ marginLeft: "0.75rem", fontSize: "0.62rem", letterSpacing: "0.1em", color: "var(--muted)", textTransform: "uppercase" }}>hackathon_2026.py</span>
-                  </div>
-                  {[
-                    { t: "def ", c: "var(--gold)", rest: [{ t: "hackathon_2026", c: "var(--gold-light)" }, { t: "():", c: "var(--muted)" }] },
-                    { indent: true, t: "date ", c: "var(--text)", rest: [{ t: "= ", c: "var(--muted)" }, { t: '"March 7, 2026"', c: "rgba(196,145,58,0.8)" }] },
-                    { indent: true, t: "theme ", c: "var(--text)", rest: [{ t: "= ", c: "var(--muted)" }, { t: '"Craft & Create"', c: "rgba(196,145,58,0.8)" }] },
-                    { indent: true, t: "location ", c: "var(--text)", rest: [{ t: "= ", c: "var(--muted)" }, { t: '"Online · Pittsburgh"', c: "rgba(196,145,58,0.8)" }] },
-                    { indent: true, t: "participants ", c: "var(--text)", rest: [{ t: "= ", c: "var(--muted)" }, { t: "await ", c: "var(--gold)" }, { t: "your_response()", c: "var(--gold-light)" }] },
-                    { prompt: true, t: "join_hackathon()", c: "var(--gold-light)" },
-                    { success: true, t: "[✓] Reserving your spot...", c: "rgba(100,200,120,0.8)" },
-                  ].map((line, i) => (
-                    <div key={i} style={{ fontSize: "0.76rem", lineHeight: 2, paddingLeft: line.indent ? "1.5rem" : 0 }}>
-                      {line.prompt && <span style={{ color: "var(--gold)", opacity: 0.5 }}>&gt;&gt;&gt; </span>}
-                      <span style={{ color: line.c }}>{line.t}</span>
-                      {line.rest?.map((r, j) => <span key={j} style={{ color: r.c }}>{r.t}</span>)}
-                    </div>
-                  ))}
-                </div>
-              </motion.div>
-            </div>
-          </div>
-        </section>
-
-        {/* ══════════════════════════════════════
-            PRIZES  (NEW)
-        ══════════════════════════════════════ */}
-        <section id="prizes" className="grid-bg" style={{ background: "var(--surface)", padding: "8rem 2rem", position: "relative" }}>
-          <GoldLine />
-          <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-            {/* Header */}
-            <motion.div
-              variants={stagger}
-              initial="hidden"
-              whileInView="show"
-              viewport={{ once: true }}
-              style={{ textAlign: "center", marginBottom: "5rem" }}
-            >
-              <motion.div variants={fadeUp} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "1rem", marginBottom: "1.25rem" }}>
-                <div style={{ width: 40, height: 1, background: "var(--gold)", opacity: 0.6 }} />
-                <span className="font-mono" style={{ fontSize: "0.68rem", letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--gold)" }}>Awards</span>
-                <div style={{ width: 40, height: 1, background: "var(--gold)", opacity: 0.6 }} />
-              </motion.div>
-              <motion.h2
-                variants={fadeUp}
-                className="font-display"
-                style={{ fontSize: "clamp(2.8rem,7vw,5.5rem)", fontWeight: 300, letterSpacing: "-0.03em", lineHeight: 0.95, color: "var(--text)" }}
-              >
-                The <em className="shimmer-text" style={{ fontStyle: "italic" }}>Prizes</em>
-              </motion.h2>
-              <motion.p variants={fadeUp} style={{ marginTop: "1.5rem", fontSize: "1.05rem", color: "var(--muted)", maxWidth: 460, margin: "1.5rem auto 0" }}>
-                Real cash prizes for the top three teams. Build something remarkable and take home the gold.
-              </motion.p>
-            </motion.div>
-
-            {/* Podium — 2nd · 1st · 3rd */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1.15fr 1fr", gap: "1.5rem", alignItems: "end" }}>
-              {/* 2nd Place */}
-              <motion.div
-                variants={fadeLeft}
-                initial="hidden"
-                whileInView="show"
-                viewport={{ once: true }}
-                className="prize-silver"
-                style={{
-                  background: "var(--card)",
-                  border: "1px solid rgba(180,190,200,0.2)",
-                  borderRadius: 20,
-                  padding: "2.5rem 2rem",
-                  textAlign: "center",
-                  position: "relative",
-                  overflow: "hidden",
-                }}
-              >
-                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, transparent, rgba(180,190,200,0.5), transparent)" }} />
-                <div style={{ marginBottom: "1.5rem" }}>
-                  <div style={{
-                    width: 56, height: 56, borderRadius: "50%",
-                    background: "linear-gradient(135deg,#B0B8C0,#8A9299)",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    margin: "0 auto 1rem",
-                    boxShadow: "0 4px 20px rgba(180,190,200,0.2)",
-                  }}>
-                    <Award size={26} color="rgba(240,245,250,0.9)" />
-                  </div>
-                  <span className="font-mono" style={{ fontSize: "0.65rem", letterSpacing: "0.18em", textTransform: "uppercase", color: "rgba(180,190,200,0.7)" }}>2nd Place</span>
-                </div>
-                <div className="font-display" style={{ fontSize: "clamp(2.5rem,5vw,3.5rem)", fontWeight: 700, color: "rgba(200,210,220,0.95)", letterSpacing: "-0.03em", lineHeight: 1 }}>
-                  $100
-                </div>
-                <div style={{ marginTop: "1rem", fontFamily: "'Outfit',sans-serif", fontSize: "0.82rem", color: "var(--muted)", lineHeight: 1.6 }}>
-                  Aypeng1
-                </div>
-                {/* Podium bar */}
-                <div style={{ marginTop: "2rem", marginLeft: -32, marginRight: -32, marginBottom: -40, height: 24, background: "rgba(180,190,200,0.08)", borderTop: "1px solid rgba(180,190,200,0.15)" }} />
-              </motion.div>
-
-              {/* 1st Place — CENTER & TALLEST */}
-              <motion.div
-                variants={fadeUp}
-                initial="hidden"
-                whileInView="show"
-                viewport={{ once: true }}
-                className="prize-gold"
-                style={{
-                  background: "linear-gradient(180deg, #141208 0%, var(--card) 100%)",
-                  border: "1px solid rgba(196,145,58,0.4)",
-                  borderRadius: 24,
-                  padding: "3.5rem 2.5rem 3rem",
-                  textAlign: "center",
-                  position: "relative",
-                  overflow: "hidden",
-                  zIndex: 2,
-                }}
-              >
-                {/* Gold top bar */}
-                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: "linear-gradient(90deg, transparent, var(--gold-light), var(--gold), var(--gold-light), transparent)" }} />
-                {/* Glow */}
-                <div style={{ position: "absolute", top: -40, left: "50%", transform: "translateX(-50%)", width: 200, height: 200, borderRadius: "50%", background: "radial-gradient(circle, rgba(196,145,58,0.12) 0%, transparent 70%)", pointerEvents: "none" }} />
-
-                <div style={{ marginBottom: "1.75rem", position: "relative", zIndex: 1 }}>
-                  <motion.div
-                    animate={{ scale: [1, 1.08, 1], rotate: [0, 4, -4, 0] }}
-                    transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                    style={{
-                      width: 72, height: 72, borderRadius: "50%",
-                      background: "linear-gradient(135deg, #C4913A, #E8C97A, #C4913A)",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      margin: "0 auto 1.25rem",
-                      boxShadow: "0 8px 32px rgba(196,145,58,0.45)",
-                    }}
-                  >
-                    <Trophy size={32} color="#0D0C0A" />
-                  </motion.div>
-                  <span className="font-mono" style={{ fontSize: "0.68rem", letterSpacing: "0.2em", textTransform: "uppercase", color: "var(--gold)" }}>1st Place</span>
-                </div>
-
-                <div className="shimmer-text font-display" style={{ fontSize: "clamp(3rem,7vw,5rem)", fontWeight: 700, letterSpacing: "-0.03em", lineHeight: 1, position: "relative", zIndex: 1 }}>
-                  $200
-                </div>
-                <div style={{ marginTop: "0.5rem", fontFamily: "'DM Mono',monospace", fontSize: "0.7rem", letterSpacing: "0.1em", color: "var(--gold)", textTransform: "uppercase" }}>
-                  Grand Prize
-                </div>
-                <div style={{ marginTop: "1.25rem", fontFamily: "'Outfit',sans-serif", fontSize: "0.9rem", color: "rgba(240,230,211,0.6)", lineHeight: 1.6 }}>
-                  Binary Bandits
-                </div>
-
-                {/* Crown decoration */}
-                <div style={{ position: "absolute", top: 16, right: 20, fontFamily: "'Cormorant',serif", fontSize: "2rem", color: "rgba(196,145,58,0.15)" }}>✦</div>
-                <div style={{ position: "absolute", top: 16, left: 20, fontFamily: "'Cormorant',serif", fontSize: "2rem", color: "rgba(196,145,58,0.15)" }}>✦</div>
-              </motion.div>
-
-              {/* 3rd Place */}
-              <motion.div
-                variants={fadeRight}
-                initial="hidden"
-                whileInView="show"
-                viewport={{ once: true }}
-                className="prize-bronze"
-                style={{
-                  background: "var(--card)",
-                  border: "1px solid rgba(180,120,60,0.2)",
-                  borderRadius: 20,
-                  padding: "2.5rem 2rem",
-                  textAlign: "center",
-                  position: "relative",
-                  overflow: "hidden",
-                }}
-              >
-                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, transparent, rgba(180,120,60,0.5), transparent)" }} />
-                <div style={{ marginBottom: "1.5rem" }}>
-                  <div style={{
-                    width: 56, height: 56, borderRadius: "50%",
-                    background: "linear-gradient(135deg,#B07840,#7A5228)",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    margin: "0 auto 1rem",
-                    boxShadow: "0 4px 20px rgba(180,120,60,0.2)",
-                  }}>
-                    <Award size={26} color="rgba(255,220,180,0.9)" />
-                  </div>
-                  <span className="font-mono" style={{ fontSize: "0.65rem", letterSpacing: "0.18em", textTransform: "uppercase", color: "rgba(180,120,60,0.7)" }}>3rd Place</span>
-                </div>
-                <div className="font-display" style={{ fontSize: "clamp(2.5rem,5vw,3.5rem)", fontWeight: 700, color: "rgba(220,160,90,0.95)", letterSpacing: "-0.03em", lineHeight: 1 }}>
-                  $50
-                </div>
-                <div style={{ marginTop: "1rem", fontFamily: "'Outfit',sans-serif", fontSize: "0.82rem", color: "var(--muted)", lineHeight: 1.6 }}>
-                  Programming Pandas
-                </div>
-                <div style={{ marginTop: "2rem", marginLeft: -32, marginRight: -32, marginBottom: -40, height: 16, background: "rgba(180,120,60,0.06)", borderTop: "1px solid rgba(180,120,60,0.12)" }} />
-              </motion.div>
-            </div>
-
-            {/* Note below */}
-            <motion.p
-              variants={fadeUp}
-              initial="hidden"
-              whileInView="show"
-              viewport={{ once: true }}
-              style={{ textAlign: "center", marginTop: "4rem", fontFamily: "'DM Mono',monospace", fontSize: "0.72rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--muted)", opacity: 0.7 }}
-            >
-              Prizes paid out to verified winners following the event
-            </motion.p>
-          </div>
-          <GoldLine style={{ marginTop: "8rem" }} />
-        </section>
-
-        {/* ══════════════════════════════════════
-            DONATE
-        ══════════════════════════════════════ */}
-        <section id="donate" style={{ background: "var(--bg)", padding: "8rem 2rem" }}>
-          <div style={{ maxWidth: 900, margin: "0 auto" }}>
-            <motion.div
-              variants={stagger}
-              initial="hidden"
-              whileInView="show"
-              viewport={{ once: true }}
-              style={{ textAlign: "center", marginBottom: "3.5rem" }}
-            >
-              <motion.div variants={fadeUp} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "0.6rem", marginBottom: "1.5rem" }}>
-                <div style={{ padding: "0.7rem", borderRadius: 12, background: "rgba(196,145,58,0.08)", border: "1px solid var(--gold-border)" }}>
-                  <Heart size={20} color="var(--gold)" />
-                </div>
-              </motion.div>
-              <motion.h2
-                variants={fadeUp}
-                className="font-display"
-                style={{ fontSize: "clamp(2.2rem,5vw,4rem)", fontWeight: 400, letterSpacing: "-0.02em", color: "var(--text)", marginBottom: "1.25rem" }}
-              >
-                Support Our Craft
-              </motion.h2>
-              <motion.p variants={fadeUp} style={{ fontSize: "1.05rem", color: "var(--muted)", lineHeight: 1.75, maxWidth: 540, margin: "0 auto" }}>
-                As a student-run club, we're building everything from scratch. Your support helps us create meaningful experiences for young developers in our community.
-              </motion.p>
-            </motion.div>
-
-            <motion.div
-              variants={fadeUp}
-              initial="hidden"
-              whileInView="show"
-              viewport={{ once: true }}
-              style={{ background: "var(--card)", border: "1px solid var(--gold-border)", borderRadius: 24, padding: "3rem", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3rem", alignItems: "center" }}
-            >
-              {/* Where it goes */}
-              <div>
-                <h4 style={{ fontFamily: "'Outfit',sans-serif", fontSize: "1.05rem", fontWeight: 600, color: "var(--text)", marginBottom: "1.75rem" }}>
-                  Where Your Support Goes
-                </h4>
-                <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: "1.1rem" }}>
-                  {[
-                    "Hackathon infrastructure and tools",
-                    "Learning resources for club members",
-                    "Future community events and workshops",
-                    "Supporting student-led initiatives",
-                  ].map(item => (
-                    <li key={item} style={{ display: "flex", alignItems: "center", gap: "0.9rem" }}>
-                      <div style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--gold)", flexShrink: 0 }} />
-                      <span style={{ fontFamily: "'Outfit',sans-serif", fontSize: "0.9rem", color: "rgba(240,230,211,0.65)", lineHeight: 1.5 }}>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              {/* CTA */}
-              <div style={{ textAlign: "center" }}>
-                <div style={{ background: "rgba(196,145,58,0.05)", border: "1px solid var(--gold-border)", borderRadius: 16, padding: "2rem", marginBottom: "1.5rem" }}>
-                  <div className="font-mono" style={{ fontSize: "0.65rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--gold)", marginBottom: "0.5rem" }}>Help us reach our goal</div>
-                  <div className="font-display shimmer-text" style={{ fontSize: "3rem", fontWeight: 700, lineHeight: 1 }}>$2,500</div>
-                  <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: "0.8rem", color: "var(--muted)", marginTop: "0.4rem" }}>for hackathon excellence</div>
-                </div>
-                <a
-                  href="https://gofund.me/a3b0683db"
-                  target="_blank" rel="noopener noreferrer"
-                  className="btn-primary"
-                  style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "0.65rem", width: "100%", padding: "1rem", borderRadius: 12, fontSize: "0.95rem", textDecoration: "none", fontFamily: "'Outfit',sans-serif" }}
-                >
-                  <Heart size={16} />
-                  Support Our Mission
-                </a>
-                <p style={{ fontFamily: "'DM Mono',monospace", fontSize: "0.65rem", letterSpacing: "0.08em", color: "rgba(122,110,95,0.5)", marginTop: "1rem" }}>
-                  Every contribution helps us craft better experiences
-                </p>
-              </div>
-            </motion.div>
-          </div>
-        </section>
-
-        {/* ══════════════════════════════════════
-            JOIN
-        ══════════════════════════════════════ */}
-        <section id="join" style={{ background: "var(--bg)", padding: "8rem 2rem 6rem", position: "relative", overflow: "hidden" }}>
-          <GoldLine />
-          {/* BG glow */}
-          <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: 600, height: 400, background: "radial-gradient(ellipse, rgba(196,145,58,0.05) 0%, transparent 70%)", pointerEvents: "none" }} />
-
-          <div style={{ maxWidth: 680, margin: "0 auto", textAlign: "center", position: "relative", zIndex: 1 }}>
-            <motion.div
-              variants={stagger}
-              initial="hidden"
-              whileInView="show"
-              viewport={{ once: true }}
-            >
-              <motion.div variants={fadeUp} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "1rem", marginBottom: "1.25rem" }}>
-                <div style={{ width: 40, height: 1, background: "var(--gold)", opacity: 0.6 }} />
-                <span className="font-mono" style={{ fontSize: "0.68rem", letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--gold)" }}>Get Involved</span>
-                <div style={{ width: 40, height: 1, background: "var(--gold)", opacity: 0.6 }} />
-              </motion.div>
-
-              <motion.h2
-                variants={fadeUp}
-                className="font-display"
-                style={{ fontSize: "clamp(2.5rem,7vw,5rem)", fontWeight: 300, letterSpacing: "-0.03em", lineHeight: 0.95, color: "var(--text)", marginBottom: "1.5rem" }}
-              >
-                Join the<br /><em className="shimmer-text" style={{ fontStyle: "italic" }}>Workshop</em>
-              </motion.h2>
-
-              <motion.p variants={fadeUp} style={{ fontSize: "1.05rem", color: "var(--muted)", lineHeight: 1.75, marginBottom: "3rem", maxWidth: 480, margin: "0 auto 3rem" }}>
-                Whether you want to join the hackathon, attend weekly club meetings, or support our mission — there's a place for you here.
-              </motion.p>
-
-              <motion.div variants={fadeUp} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "1rem", flexWrap: "wrap", marginBottom: "5rem" }}>
-                <a
-                  href="https://docs.google.com/forms/d/e/1FAIpQLSdJ8qUgqsHDBEELzE5xT6zU8-g2xYbQiiUIYlD3JOQfC30e4w/viewform?usp=dialog"
-                  className="btn-primary"
-                  style={{ display: "inline-flex", alignItems: "center", gap: "0.65rem", padding: "1rem 2.25rem", borderRadius: 14, fontSize: "0.95rem", letterSpacing: "0.02em", textDecoration: "none", fontFamily: "'Outfit',sans-serif" }}
-                >
-                  <Users size={17} />
-                  Become a Member
-                </a>
-                <button
-                  onClick={() => scrollTo("hackathon")}
-                  className="btn-outline"
-                  style={{ display: "inline-flex", alignItems: "center", gap: "0.65rem", padding: "1rem 2.25rem", borderRadius: 14, fontSize: "0.95rem", background: "none", cursor: "pointer", fontFamily: "'Outfit',sans-serif" }}
-                >
-                  Hackathon Details
-                  <ChevronRight size={15} />
-                </button>
-              </motion.div>
-
-              {/* Footer line */}
-              <motion.div
-                variants={fadeUp}
-                style={{ paddingTop: "2.5rem", borderTop: "1px solid var(--faint)" }}
-              >
-                <p className="font-mono" style={{ fontSize: "0.65rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(122,110,95,0.45)" }}>
-                  FC Hacks · Crafting code with care since 2024 · Fox Chapel Area School District
-                </p>
-              </motion.div>
-            </motion.div>
-          </div>
-        </section>
-
+    <motion.header
+      className={`nav ${scrolled ? "scrolled" : ""}`}
+      initial={{ y: -20, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ duration: 0.8, delay: 0.4, ease: EASE }}
+    >
+      <div className="wrap nav-inner">
+        <a href="#top" className="nav-brand">{ORG_NAME}</a>
+        <nav className="nav-links">
+          <a href="#about" className="nav-link">About</a>
+          <a href="#signup" className="btn btn-solid">Sign up</a>
+        </nav>
       </div>
-    </>
+    </motion.header>
+  );
+}
+
+function Hero({ reduced }) {
+  const ref = useRef(null);
+  const inView = useInView(ref);
+  const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] });
+
+  // Over one screen of scroll: back layer lags, title outruns the page, front layer outruns everything
+  const r = reduced ? 0 : 1;
+  const backY  = useTransform(scrollYProgress, [0, 1], [0, 320 * r]);
+  const textY  = useTransform(scrollYProgress, [0, 1], [0, -280 * r]);
+  const frontY = useTransform(scrollYProgress, [0, 1], [0, -520 * r]);
+  const fade   = useTransform(scrollYProgress, [0, 0.7], [1, 0]);
+
+  return (
+    <section ref={ref} id="top" className="hero">
+      {/* Models behind the title */}
+      <motion.div className="layer layer-back" style={{ y: backY }} aria-hidden="true">
+        <Stage active={inView}>
+          <HeroScene layer="back" reduced={reduced} />
+        </Stage>
+      </motion.div>
+
+      {/* Title */}
+      <motion.div className="layer layer-text" style={{ y: textY, opacity: fade }}>
+        <div>
+          <h1 className="display hero-title" aria-label={ORG_NAME}>
+            {ORG_NAME.split(" ").map((word, i) => (
+              <span key={`${word}-${i}`} className="mask" aria-hidden="true">
+                <motion.span
+                  initial={{ y: "105%" }}
+                  animate={{ y: "0%" }}
+                  transition={{ duration: 1.1, delay: 0.15 + i * 0.1, ease: EASE }}
+                >
+                  {word}
+                </motion.span>
+              </span>
+            ))}
+          </h1>
+
+          <motion.p
+            className="hero-sub"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.9, delay: 0.6, ease: EASE }}
+          >
+            Hosting a hackathon for <em>{EVENT_YEAR}</em>.
+          </motion.p>
+
+          <motion.div
+            className="hero-cta"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.9, delay: 0.75, ease: EASE }}
+          >
+            <a href="#signup" className="btn btn-ghost">
+              Get on the list <ArrowUpRight size={14} />
+            </a>
+          </motion.div>
+        </div>
+      </motion.div>
+
+      {/* Models in front of the title */}
+      <motion.div className="layer layer-front" style={{ y: frontY }} aria-hidden="true">
+        <Stage active={inView}>
+          <HeroScene layer="front" reduced={reduced} />
+        </Stage>
+      </motion.div>
+
+      <motion.div className="wrap hero-foot" style={{ opacity: fade }}>
+        <span className="meta">Regional · Open to everyone</span>
+        <a href="#about" className="meta scroll-cue">
+          Scroll <ArrowDown size={12} />
+        </a>
+      </motion.div>
+    </section>
+  );
+}
+
+function About() {
+  const mediaRef = useRef(null);
+  const reduced = useReducedMotion();
+  const { scrollYProgress } = useScroll({ target: mediaRef, offset: ["start end", "end start"] });
+  const imgY = useTransform(scrollYProgress, [0, 1], reduced ? ["0%", "0%"] : ["-12%", "12%"]);
+
+  return (
+    <section id="about" className="section">
+      <div className="wrap">
+        <div className="about-grid">
+          {/* Photo: frame lags behind the page, image drifts inside it */}
+          <Parallax speed={-70}>
+            <figure ref={mediaRef} className="about-media">
+              <motion.img src={ABOUT_IMAGE} alt="Code on a laptop screen" style={{ y: imgY }} />
+              <figcaption>
+                <span className="meta">Where it started</span>
+                <span className="meta">A classroom, after the bell</span>
+              </figcaption>
+            </figure>
+          </Parallax>
+
+          {/* Copy: outruns the page */}
+          <Parallax speed={130} className="about-copy">
+            <Reveal>
+              <h2 className="display display-md">
+                Started in <br /><span className="olive">Fox Chapel</span>
+              </h2>
+            </Reveal>
+            <Reveal delay={0.1}>
+              <p className="body">
+                This hackathon is hosted by {" "}<strong>FC Hacks</strong>, a student-run club at Fox Chapel Area High School.
+                We started 2 years ago as a small group of friends who liked to build things together.
+              </p>
+              <p className="body">
+                We spent our free time making websites, apps, and games, and we wanted to share that with our classmates.
+              </p>
+              <p className="body">
+                This year, we are hosting our 2nd hackahon, and we are excited to welcome anyone who wants to compete. Whether you are a beginner or a seasoned hacker, we hope you will join us for a day of creativity and fun.
+              </p>
+            </Reveal>
+          </Parallax>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Field({ id, label, optional, children }) {
+  return (
+    <div className="field">
+      <label htmlFor={id}>
+        {label}
+        {optional && <span className="opt"> — optional</span>}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+
+
+function SignUp() {
+  const facts = [
+    ["When", `${EVENT_YEAR} · Date TBA`],
+    ["Where", "Regional · Venue TBA"],
+    ["Who", "Anyone who builds. Vibe coders welcome."],
+    ["Format", "Solo or teams"],
+  ];
+
+  return (
+    <section id="signup" className="section">
+      <div className="wrap">
+        <div className="signup-grid" style={{ alignItems: "center" }}>
+          {/* Left — heading, copy, button */}
+          <Parallax speed={110}>
+            <Reveal>
+              <h2 className="display display-md">
+                Save<br />your <span className="olive">spot.</span>
+              </h2>
+              <p className="body" style={{ marginTop: 28 }}>
+                Date and venue drop soon. Get on the list and you&apos;ll hear about everything first —
+                schedule, location, themes, and prizes.
+              </p>
+
+              <a
+                href={GOOGLE_FORM_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-solid"
+                style={{
+                  marginTop: 44,
+                  height: 68,
+                  padding: "0 44px",
+                  fontSize: 14,
+                  letterSpacing: "0.16em",
+                  gap: 12,
+                  boxShadow: "0 0 0 6px rgba(182,188,134,0.12), 0 10px 40px rgba(182,188,134,0.18)",
+                }}
+              >
+                Sign up now <ArrowUpRight size={20} />
+              </a>
+            </Reveal>
+          </Parallax>
+
+          {/* Right — event info */}
+          <Parallax speed={50}>
+            <Reveal delay={0.1}>
+              <dl className="facts" style={{ marginTop: 0 }}>
+                {facts.map(([k, v]) => (
+                  <div key={k} className="fact" style={{ padding: "22px 0", fontSize: 17 }}>
+                    <dt>{k}</dt>
+                    <dd>{v}</dd>
+                  </div>
+                ))}
+              </dl>
+            </Reveal>
+          </Parallax>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   PAGE
+════════════════════════════════════════════════════════════════════════════ */
+export default function Home() {
+  const reduced = useReducedMotion() ?? false;
+  useLenis(reduced);
+
+  return (
+    <MotionConfig reducedMotion="user">
+      <style>{GLOBAL_CSS}</style>
+      <div className="ho-root">
+        <Nav />
+        <main>
+          <Hero reduced={reduced} />
+          <About />
+          <SignUp />
+        </main>
+      </div>
+    </MotionConfig>
   );
 }
