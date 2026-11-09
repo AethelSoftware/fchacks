@@ -96,9 +96,9 @@ const GLOBAL_CSS = `
 :root {
   --bg:      #000000;
   --fg:      #F5F4EF;
-  --muted:   rgba(245,244,239,0.58);
-  --faint:   rgba(245,244,239,0.32);
-  --line:    rgba(245,244,239,0.12);
+  --muted:   rgba(245,244,239,0.82);
+  --faint:   rgba(245,244,239,0.58);
+  --line:    rgba(245,244,239,0.22);
   --olive:   ${OLIVE};
   --display: 'Anton', Impact, 'Arial Narrow', sans-serif;
   --sans:    'Inter Tight', system-ui, sans-serif;
@@ -641,7 +641,7 @@ function SignUp() {
                 Save<br />your <span className="olive">spot.</span>
               </h2>
               <p className="body" style={{ marginTop: 28 }}>
-                Date and venue drop soon. Get on the list and you&apos;ll hear about everything first —
+                Date and venue drop soon. Get on the list and you&apos;ll hear about everything first:
                 schedule, location, themes, and prizes.
               </p>
 
